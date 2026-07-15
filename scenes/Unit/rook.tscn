@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dldm3udnh78ir"]
+
+[ext_resource type="PackedScene" uid="uid://bbvtn35k6lvfq" path="res://scenes/Unit/Unit.tscn" id="1_d36u8"]
+[ext_resource type="Script" uid="uid://1o4ui465ebfw" path="res://scripts/Unit/rook.gd" id="2_1gx11"]
+
+[node name="Rook" unique_id=378181553 instance=ExtResource("1_d36u8")]
+script = ExtResource("2_1gx11")

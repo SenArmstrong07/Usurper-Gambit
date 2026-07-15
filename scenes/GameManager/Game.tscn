@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://cvil8xyt03i3m"]
+
+[ext_resource type="PackedScene" uid="uid://clq785d771ipm" path="res://scenes/GameManager/Board.tscn" id="1_h7to4"]
+[ext_resource type="Script" uid="uid://cmse8kfulsc6u" path="res://scripts/GameManager/game.gd" id="1_rtr7y"]
+
+[node name="Game" type="Node2D" unique_id=1800893229]
+script = ExtResource("1_rtr7y")
+
+[node name="Board" parent="." unique_id=1697489099 instance=ExtResource("1_h7to4")]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1297706835]
+position = Vector2(66, 65)
+zoom = Vector2(5, 5)

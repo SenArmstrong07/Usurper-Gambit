@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://b5g727qujoi7v"]
+
+[ext_resource type="PackedScene" uid="uid://bbvtn35k6lvfq" path="res://scenes/Unit/Unit.tscn" id="1_uoqet"]
+[ext_resource type="Script" uid="uid://e7f58w5e143y" path="res://scripts/Unit/pawn.gd" id="2_a2g4u"]
+
+[node name="Pawn" unique_id=378181553 instance=ExtResource("1_uoqet")]
+script = ExtResource("2_a2g4u")
