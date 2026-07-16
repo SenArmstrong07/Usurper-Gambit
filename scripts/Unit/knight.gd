@@ -1,25 +1,12 @@
 extends Unit
+class_name Knight
 
-
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	pass # Replace with function body.
+	super._ready()
 
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
-	pass
+	super._process(delta)
 	
 func get_valid_moves(board: Board) -> Array[Vector2i]:
-	return [
-		#DIFF IN X
-		grid_pos + Vector2i(1, 2),
-		grid_pos + Vector2i(2, 1),
-		grid_pos + Vector2i(-1, 2),
-		grid_pos + Vector2i(-2, 1),
-		#DIFF IN Y
-		grid_pos + Vector2i(1, -2),
-		grid_pos + Vector2i(2, -1),
-		grid_pos + Vector2i(-1, -2),
-		grid_pos + Vector2i(-2, -1),
-	]
+	var moves : Array[Vector2i] = get_knight_moves(board)
+	return filter_check_moves(board, moves)

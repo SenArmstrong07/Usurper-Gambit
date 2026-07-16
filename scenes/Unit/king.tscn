@@ -1,8 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://dtljinji8x6aw"]
 
-[ext_resource type="Script" path="res://scripts/Unit/king.gd" id="1_king"]
+[ext_resource type="Script" uid="uid://bqwxqlk0whc7w" path="res://scripts/Unit/king.gd" id="1_king"]
+[ext_resource type="PackedScene" uid="uid://bbvtn35k6lvfq" path="res://scenes/Unit/Unit.tscn" id="1_td8vk"]
 
-[node name="King" type="Node2D"]
+[node name="King" unique_id=378181553 instance=ExtResource("1_td8vk")]
 script = ExtResource("1_king")
-
-[node name="PieceSprite" type="Sprite2D" parent="."]

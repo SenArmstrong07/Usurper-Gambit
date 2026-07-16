@@ -37,7 +37,6 @@ func _ready() -> void:
 	print("TileMap scale:", chess_board.scale)
 	print("Units scale:", units.scale)
 	SignalBus.unit_dropped.connect(_on_unit_dropped)
-	#SignalBus.cell_selected.connect(highlight_cells)
 	clear_highlights()
 
 func _process(delta: float) -> void:
@@ -66,6 +65,7 @@ func handle_click(cell: Vector2i) -> void:
 	if selected_unit != null:
 		if can_move_to(selected_unit, cell):
 			move_unit(selected_unit, cell)
+			check_game_state()
 			selected_unit = null
 			clear_highlights()
 		else:
@@ -98,6 +98,7 @@ func _on_unit_dropped(unit: Unit, cell: Vector2i) -> void:
 		return
 	if can_move_to(unit, cell):
 		move_unit(unit, cell)
+		check_game_state()
 	else:
 		unit.position = chess_board.map_to_local(unit.grid_pos)
 	deselect()
@@ -137,6 +138,7 @@ func setup_initial_pieces() -> void:
 	for index in range(BOARD_SIZE):
 		spawn_piece(white_back_rank[index], 0, Vector2i(index, 7))
 		spawn_piece(black_back_rank[index], 1, Vector2i(index, 0))
+	update_king_check_visuals()
 
 func clear_board() -> void:
 	for child in units.get_children():
@@ -148,10 +150,20 @@ func clear_board() -> void:
 	clear_highlights()
 
 func spawn_piece(piece_type: String, team: int, grid_pos: Vector2i) -> Unit:
-	var scene_path := "res://scenes/Unit/Unit.tscn"
-	if piece_type.to_lower() == "king":
-		scene_path = "res://scenes/Unit/king.tscn"
-	var unit_scene: PackedScene = load(scene_path)
+	var unit_scene: PackedScene
+	match piece_type:
+		"pawn":
+			unit_scene = preload("res://scenes/Unit/pawn.tscn")
+		"rook":
+			unit_scene = preload("res://scenes/Unit/rook.tscn")
+		"bishop":
+			unit_scene = preload("res://scenes/Unit/bishop.tscn")
+		"knight":
+			unit_scene = preload("res://scenes/Unit/knight.tscn")
+		"queen":
+			unit_scene = preload("res://scenes/Unit/queen.tscn")
+		"king":
+			unit_scene = preload("res://scenes/Unit/king.tscn")
 	var unit := unit_scene.instantiate() as Unit
 	place_piece(unit, piece_type, team, grid_pos)
 	print("Board global:", global_position)
@@ -251,9 +263,6 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 	occupied_cells.erase(start_pos)
 	if captured_piece != null:
 		remove_unit(captured_piece)
-	if en_passant_capture:
-		occupied_cells.erase(last_move_to)
-		remove_unit(captured_piece)
 	if rook_to_move != null:
 		occupied_cells.erase(rook_from)
 		rook_to_move.grid_pos = rook_to
@@ -279,6 +288,7 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 	last_move_piece = unit
 
 	SignalBus.unit_moved.emit(unit, start_pos, destination)
+	update_king_check_visuals()
 
 func remove_unit(unit: Unit) -> void:
 	if unit == null:
@@ -303,3 +313,161 @@ func can_move_to(unit: Unit, destination: Vector2i) -> bool:
 
 func is_cell_occupied(cell: Vector2i) -> bool:
 	return occupied_cells.has(cell)
+
+func update_king_check_visuals() -> void:
+	for unit in units.get_children():
+		if not (unit is Unit):
+			continue
+		if unit.piece_type.to_lower() != "king":
+			continue
+		unit.update_check_visual(is_king_in_check(unit.team))
+
+# Check if a specific cell is under attack by any piece of the given team
+func is_cell_attacked_by_team(cell: Vector2i, attacking_team: int) -> bool:
+	for unit in units.get_children():
+		if not (unit is Unit):
+			continue
+		if unit.team != attacking_team:
+			continue
+		if can_piece_attack_cell(unit, cell):
+			return true
+	return false
+
+# Check if a piece can attack a specific cell (uses raw move calculations)
+func can_piece_attack_cell(piece: Unit, target_cell: Vector2i) -> bool:
+	var piece_type := piece.piece_type.to_lower()
+	var direction := -1 if piece.team == 0 else 1
+	
+	match piece_type:
+		"pawn":
+			# Pawns attack diagonally one step forward
+			var left_attack := piece.grid_pos + Vector2i(-1, direction)
+			var right_attack := piece.grid_pos + Vector2i(1, direction)
+			return target_cell == left_attack or target_cell == right_attack
+		
+		"knight":
+			# Knight moves in L-shape
+			var knight_moves : Array[Vector2i] = [
+				Vector2i(2, 1), Vector2i(2, -1), Vector2i(-2, 1), Vector2i(-2, -1),
+				Vector2i(1, 2), Vector2i(1, -2), Vector2i(-1, 2), Vector2i(-1, -2)
+			]
+			for move in knight_moves:
+				if piece.grid_pos + move == target_cell:
+					return true
+			return false
+		
+		"bishop":
+			# Bishop moves diagonally
+			return can_sliding_piece_attack(piece, target_cell, [
+				Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
+			])
+		
+		"rook":
+			# Rook moves horizontally/vertically
+			return can_sliding_piece_attack(piece, target_cell, [
+				Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)
+			])
+		
+		"queen":
+			# Queen moves like bishop and rook
+			return can_sliding_piece_attack(piece, target_cell, [
+				Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
+				Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
+			])
+		
+		"king":
+			# King can attack adjacent cells
+			var king_moves : Array[Vector2i] = [
+				Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
+				Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
+			]
+			for move in king_moves:
+				if piece.grid_pos + move == target_cell:
+					return true
+			return false
+	
+	return false
+
+# Helper for sliding pieces (bishop, rook, queen)
+func can_sliding_piece_attack(piece: Unit, target_cell: Vector2i, directions: Array[Vector2i]) -> bool:
+	for direction in directions:
+		var current := piece.grid_pos + direction
+		while is_within_bounds(current):
+			if current == target_cell:
+				return true
+			var occupant := get_unit_at(current)
+			if occupant != null:
+				break
+			current += direction
+	return false
+
+# Check if the king of a specific team is in check
+func is_king_in_check(team: int) -> bool:
+	var enemy_team := 1 - team
+	for unit in units.get_children():
+		if not (unit is Unit) or unit.piece_type.to_lower() != "king" or unit.team != team:
+			continue
+		return is_cell_attacked_by_team(unit.grid_pos, enemy_team)
+	return false
+
+# Check if a move would leave the king in check
+func would_move_leave_king_in_check(piece: Unit, destination: Vector2i) -> bool:
+	var original_pos := piece.grid_pos
+	var captured_piece := get_unit_at(destination)
+	var captured_original_pos := Vector2i.ZERO
+	
+	# Simulate the move
+	occupied_cells.erase(original_pos)
+	if captured_piece:
+		captured_original_pos = captured_piece.grid_pos
+		occupied_cells.erase(destination)
+		captured_piece.grid_pos = Vector2i(-1, -1)
+	
+	occupied_cells[destination] = piece
+	piece.grid_pos = destination
+	
+	# Check if king is now in check
+	var in_check := is_king_in_check(piece.team)
+	
+	piece.grid_pos = original_pos
+	
+	# Undo the simulation
+	occupied_cells.erase(destination)
+	occupied_cells[original_pos] = piece
+	if captured_piece:
+		occupied_cells[destination] = captured_piece
+		captured_piece.grid_pos = captured_original_pos
+	
+	return in_check
+
+# Check if the king is in checkmate
+func is_king_in_checkmate(team: int) -> bool:
+	if not is_king_in_check(team):
+		return false
+	
+	# King is in check; check if there are any valid moves
+	for unit in units.get_children():
+		if not (unit is Unit) or unit.team != team:
+			continue
+		var valid_moves : Array[Vector2i] = unit.get_valid_moves(self)
+		if valid_moves.size() > 0:
+			return false
+	
+	return true
+
+# Check game state after a move (check, checkmate, or stalemate)
+func check_game_state() -> void:
+	var opponent_team := 1 - current_turn
+	
+	if is_king_in_checkmate(opponent_team):
+		print("Checkmate! Team %d wins!" % current_turn)
+		update_king_check_visuals()
+		return
+	
+	if is_king_in_check(opponent_team):
+		print("Check!")
+	
+	update_king_check_visuals()
+	
+	# Switch turns
+	current_turn = opponent_team

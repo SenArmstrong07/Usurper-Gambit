@@ -28,7 +28,6 @@ var sprite_node: Sprite2D
 func _ready() -> void:
 	add_to_group("Unit")
 	set_process_input(true)
-	queue_redraw()
 	input_pickable = true
 	hp = max_hp
 	if sprite_node == null:
@@ -109,45 +108,45 @@ func is_enemy_in_range() -> bool:
 func is_valid_move() -> bool:
 	return false
 
-func _draw():
-	draw_circle(Vector2.ZERO, 2, Color.RED)
 
 func get_valid_moves(board: Board) -> Array[Vector2i]:
-	var moves: Array[Vector2i] = []
-	var normalized_type := piece_type.to_lower()
+	#var moves: Array[Vector2i] = []
+	#var normalized_type := piece_type.to_lower()
+#
+	#match normalized_type:
+		#"pawn":
+			#moves = get_pawn_moves(board)
+		#"rook":
+			#moves = get_sliding_moves(board, [
+				#Vector2i(0, 1),
+				#Vector2i(0, -1),
+				#Vector2i(1, 0),
+				#Vector2i(-1, 0)
+			#])
+		#"bishop":
+			#moves = get_sliding_moves(board, [
+				#Vector2i(1, 1),
+				#Vector2i(-1, 1),
+				#Vector2i(1, -1),
+				#Vector2i(-1, -1)
+			#])
+		#"queen":
+			#moves = get_sliding_moves(board, [
+				#Vector2i(0, 1),
+				#Vector2i(0, -1),
+				#Vector2i(1, 0),
+				#Vector2i(-1, 0),
+				#Vector2i(1, 1),
+				#Vector2i(-1, 1),
+				#Vector2i(1, -1),
+				#Vector2i(-1, -1)
+			#])
+		#"knight":
+			#moves = get_knight_moves(board)
+		##"king":
+			##moves = king.get_valid_moves(board)
 
-	match normalized_type:
-		"pawn":
-			moves = get_pawn_moves(board)
-		"rook":
-			moves = get_sliding_moves(board, [
-				Vector2i(0, 1),
-				Vector2i(0, -1),
-				Vector2i(1, 0),
-				Vector2i(-1, 0)
-			])
-		"bishop":
-			moves = get_sliding_moves(board, [
-				Vector2i(1, 1),
-				Vector2i(-1, 1),
-				Vector2i(1, -1),
-				Vector2i(-1, -1)
-			])
-		"queen":
-			moves = get_sliding_moves(board, [
-				Vector2i(0, 1),
-				Vector2i(0, -1),
-				Vector2i(1, 0),
-				Vector2i(-1, 0),
-				Vector2i(1, 1),
-				Vector2i(-1, 1),
-				Vector2i(1, -1),
-				Vector2i(-1, -1)
-			])
-		"knight":
-			moves = get_knight_moves(board)
-
-	return moves
+	return []
 
 func get_pawn_moves(board: Board) -> Array[Vector2i]:
 	var moves: Array[Vector2i] = []
@@ -170,17 +169,17 @@ func get_pawn_moves(board: Board) -> Array[Vector2i]:
 			moves.append(capture_cell)
 
 	if board.last_move_piece != null and board.last_move_piece.piece_type.to_lower() == "pawn" and abs(board.last_move_from.y - board.last_move_to.y) == 2:
-		var passant_target := board.last_move_to + Vector2i(0, -direction)
-		if abs(board.last_move_to.x - grid_pos.x) == 1 and board.last_move_to.y == grid_pos.y and destination_is_en_passant_target(board, passant_target):
+		var passant_target := grid_pos + Vector2i(board.last_move_to.x - grid_pos.x, direction)
+		if abs(board.last_move_to.x - grid_pos.x) == 1 and board.last_move_to.y == grid_pos.y and destination_is_en_passant_target(board, passant_target, grid_pos, direction):
 			moves.append(passant_target)
 
 	return moves
 
-func destination_is_en_passant_target(board: Board, cell: Vector2i) -> bool:
+func destination_is_en_passant_target(board: Board, cell: Vector2i, pawn_pos: Vector2i, pawn_direction: int) -> bool:
 	if not board.is_within_bounds(cell):
 		return false
 	var target := board.get_unit_at(cell)
-	return target == null and cell == board.last_move_to + Vector2i(0, 1 if team == 0 else -1)
+	return target == null and cell.x == board.last_move_to.x and cell.y == pawn_pos.y + pawn_direction
 
 func get_sliding_moves(board: Board, directions: Array[Vector2i]) -> Array[Vector2i]:
 	var moves: Array[Vector2i] = []
@@ -217,6 +216,26 @@ func get_knight_moves(board: Board) -> Array[Vector2i]:
 		if occupant == null or occupant.team != team:
 			moves.append(target)
 	return moves
+
+# Filter moves that would leave the king in check
+func filter_check_moves(board: Board, moves: Array[Vector2i]) -> Array[Vector2i]:
+	var safe_moves: Array[Vector2i] = []
+	for move in moves:
+		if not board.would_move_leave_king_in_check(self, move):
+			safe_moves.append(move)
+	return safe_moves
+
+func update_check_visual(is_in_check: bool) -> void:
+	print(piece_type, sprite_node, is_in_check)
+	if sprite_node == null:
+		return
+	if piece_type.to_lower() != "king":
+		return
+	if is_in_check:
+		sprite_node.modulate = Color.RED
+	else:
+		sprite_node.modulate = Color.WHITE
+	print(piece_type, is_in_check)
 
 func capture():
 	print("Cell Captured")

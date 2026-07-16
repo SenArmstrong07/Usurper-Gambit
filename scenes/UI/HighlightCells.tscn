@@ -5,5 +5,4 @@
 [node name="HighlightCells" type="Node2D" unique_id=1754977315]
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=2083869904]
-centered = true
 texture = ExtResource("1_noj25")

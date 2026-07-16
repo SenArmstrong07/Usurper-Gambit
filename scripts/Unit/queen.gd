@@ -1,44 +1,23 @@
 extends Unit
+class_name Queen
 
-
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	pass # Replace with function body.
+	super._ready()
 
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
-	pass
+	super._process(delta)
 	
 #STRAIGHT+DIAGONALS
 func get_valid_moves(board: Board) -> Array[Vector2i]:
-	var moves: Array[Vector2i] = []
-
-	var directions = [
-		#STRAIGHTS
-		Vector2i(0,1), #DOWN
-		Vector2i(0,-1),#UPs 
-		Vector2i(1,0), #RIGHT
-		Vector2i(-1,0), #LEFT
-		
-		#DIAGONALS
-		Vector2i(1,1), #lower right
-		Vector2i(-1,1),#lower left
-		Vector2i(1,-1),#upper right
-		Vector2i(-1,-1)#upper left
+	var directions : Array[Vector2i] = [
+		Vector2i(0,1),
+		Vector2i(0,-1),
+		Vector2i(1,0),
+		Vector2i(-1,0),
+		Vector2i(1,1),
+		Vector2i(-1,1),
+		Vector2i(1,-1),
+		Vector2i(-1,-1)
 	]
-	
-	#for loop to check other coords that follow along the diagonals
-	#if the next coord is free, append it to the available moves
-	for direction in directions:
-		var current = grid_pos + direction
-
-		while board.is_inside_board(current):
-			if !board.is_cell_occupied(current):
-				moves.append(current)
-			else:
-				break
-
-			current += direction
-
-	return moves
+	var moves : Array[Vector2i] = get_sliding_moves(board, directions)
+	return filter_check_moves(board, moves)

@@ -1,8 +1,12 @@
 extends Unit
+class_name King
 
 func _ready() -> void:
 	super._ready()
-	piece_type = "king"
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta: float) -> void:
+	super._process(delta)
 
 func get_valid_moves(board: Board) -> Array[Vector2i]:
 	var moves: Array[Vector2i] = []
@@ -22,7 +26,9 @@ func get_valid_moves(board: Board) -> Array[Vector2i]:
 			continue
 		var occupant := board.get_unit_at(target)
 		if occupant == null or occupant.team != team:
-			moves.append(target)
+			# Filter out moves that would leave king in check
+			if not board.would_move_leave_king_in_check(self, target):
+				moves.append(target)
 
 	if not has_moved:
 		for offset in [-1, 1]:
@@ -37,6 +43,8 @@ func get_valid_moves(board: Board) -> Array[Vector2i]:
 			if path_clear and board.is_within_bounds(rook_pos):
 				var rook := board.get_unit_at(rook_pos)
 				if rook != null and rook.piece_type.to_lower() == "rook" and rook.team == team and not rook.has_moved:
-					moves.append(rook_target)
+					# Filter castling moves that would leave king in check
+					if not board.would_move_leave_king_in_check(self, rook_target):
+						moves.append(rook_target)
 
 	return moves

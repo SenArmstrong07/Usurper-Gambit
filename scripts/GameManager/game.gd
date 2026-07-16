@@ -31,8 +31,7 @@ func _on_unit_moved(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> void:
 		return
 	var notation := format_move(unit, from_cell, to_cell)
 	move_history.append(notation)
-	current_player = 1 - current_player
-	board.current_turn = current_player
+	# Turn switching is now handled in board.check_game_state()
 	update_ui()
 
 func format_move(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> String:
@@ -67,6 +66,8 @@ func add_ui() -> void:
 	canvas.add_child(moves_label)
 
 func update_ui() -> void:
+	# Sync current_player with board's turn
+	current_player = board.current_turn
 	var player_name := "White" if current_player == 0 else "Black"
 	turn_label.text = "Turn: %s" % player_name
 	var history_text := "Moves:\n"
