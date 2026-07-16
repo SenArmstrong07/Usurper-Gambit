@@ -6,6 +6,7 @@ var occupied_cells: Dictionary[Vector2i, Unit] = {}
 var selected_unit: Unit = null
 var dragging_unit: Unit = null
 var current_turn: int = 0
+var game_over: bool = false
 var last_move_from: Vector2i = Vector2i.ZERO
 var last_move_to: Vector2i = Vector2i.ZERO
 var last_move_piece: Unit = null
@@ -48,7 +49,7 @@ func _process(delta: float) -> void:
 
 #Mouse Handlers
 func _input(event: InputEvent) -> void:
-	if board_state == BoardState.COMBAT:
+	if game_over or board_state == BoardState.COMBAT:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_mouse_pos := chess_board.get_local_mouse_position()
@@ -90,6 +91,10 @@ func clear_highlights() -> void:
 	highlight_markers.visible = false
 
 func _on_unit_dropped(unit: Unit, cell: Vector2i) -> void:
+	if game_over:
+		unit.position = chess_board.map_to_local(unit.grid_pos)
+		deselect()
+		return
 	if unit == null:
 		return
 	if unit.team != current_turn:
@@ -141,9 +146,12 @@ func setup_initial_pieces() -> void:
 	update_king_check_visuals()
 
 func clear_board() -> void:
-	for child in units.get_children():
+	var children := units.get_children()
+	for child in children:
 		if child is Unit:
-			child.queue_free()
+			if child.is_inside_tree():
+				child.get_parent().remove_child(child)
+			child.free()
 	occupied_cells.clear()
 	selected_unit = null
 	dragging_unit = null
@@ -495,19 +503,49 @@ func is_king_in_checkmate(team: int) -> bool:
 	
 	return true
 
+# Check if the team is in stalemate
+func is_team_in_stalemate(team: int) -> bool:
+	if is_king_in_check(team):
+		return false
+	
+	for unit in units.get_children():
+		if not (unit is Unit) or unit.team != team:
+			continue
+		var valid_moves : Array[Vector2i] = unit.get_valid_moves(self)
+		if valid_moves.size() > 0:
+			return false
+	
+	return true
+
 # Check game state after a move (check, checkmate, or stalemate)
 func check_game_state() -> void:
 	var opponent_team := 1 - current_turn
 	
 	if is_king_in_checkmate(opponent_team):
+		game_over = true
+		board_state = BoardState.COMBAT
+		deselect()
+		clear_highlights()
 		print("Checkmate! Team %d wins!" % current_turn)
 		update_king_check_visuals()
+		SignalBus.game_over.emit(current_turn)
+		return
+	
+	if is_team_in_stalemate(opponent_team):
+		game_over = true
+		board_state = BoardState.COMBAT
+		deselect()
+		clear_highlights()
+		print("Stalemate")
+		update_king_check_visuals()
+		SignalBus.game_over.emit(-1)
 		return
 	
 	if is_king_in_check(opponent_team):
 		print("Check!")
 	
 	update_king_check_visuals()
+	current_turn = opponent_team
 	
 	# Switch turns
 	current_turn = opponent_team

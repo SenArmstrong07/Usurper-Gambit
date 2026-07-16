@@ -7,11 +7,14 @@ var current_player: int = 0
 var move_history: Array[String] = []
 var turn_label: Label
 var moves_label: Label
+var game_over_label: Label
+var reset_button: Button
 var game_over: bool = false
 
 func _ready() -> void:
 	board = get_node("Board") as Board
 	SignalBus.unit_moved.connect(_on_unit_moved)
+	SignalBus.game_over.connect(_on_game_over)
 	add_ui()
 	start_battle()
 
@@ -20,6 +23,10 @@ func _process(delta: float) -> void:
 
 func start_battle() -> void:
 	board.current_turn = current_player
+	board.game_over = false
+	game_over = false
+	if game_over_label:
+		game_over_label.visible = false
 	board.setup_initial_pieces()
 	update_ui()
 
@@ -32,6 +39,29 @@ func _on_unit_moved(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> void:
 	var notation := format_move(unit, from_cell, to_cell)
 	move_history.append(notation)
 	# Turn switching is now handled in board.check_game_state()
+	update_ui()
+
+func _on_game_over(winner: int) -> void:
+	game_over = true
+	if winner == -1:
+		game_over_label.text = "Draw by stalemate!"
+	else:
+		var winner_name := "White" if winner == 0 else "Black"
+		game_over_label.text = "%s wins by checkmate!" % winner_name
+	game_over_label.visible = true
+	reset_button.visible = true
+	update_ui()
+
+func _on_reset_pressed() -> void:
+	reset_button.visible = false
+	game_over_label.visible = false
+	move_history.clear()
+	current_player = 0
+	board.current_turn = current_player
+	board.game_over = false
+	board.board_state = board.BoardState.IDLE
+	board.clear_board()
+	board.setup_initial_pieces()
 	update_ui()
 
 func format_move(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> String:
@@ -64,6 +94,22 @@ func add_ui() -> void:
 	moves_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	moves_label.size = Vector2(320, 220)
 	canvas.add_child(moves_label)
+
+	game_over_label = Label.new()
+	game_over_label.name = "GameOverLabel"
+	game_over_label.position = Vector2(20, 300)
+	game_over_label.scale = Vector2(1.5, 1.5)
+	game_over_label.visible = false
+	game_over_label.modulate = Color.RED
+	canvas.add_child(game_over_label)
+
+	reset_button = Button.new()
+	reset_button.name = "ResetButton"
+	reset_button.text = "Replay"
+	reset_button.position = Vector2(20, 360)
+	reset_button.visible = false
+	reset_button.pressed.connect(_on_reset_pressed)
+	canvas.add_child(reset_button)
 
 func update_ui() -> void:
 	# Sync current_player with board's turn

@@ -42,6 +42,9 @@ func _input(event: InputEvent) -> void:
 	if event is not InputEventMouseButton:
 		return
 
+	if board != null and board.game_over:
+		return
+
 	var mouse_event := event as InputEventMouseButton
 	if mouse_event.button_index != MOUSE_BUTTON_LEFT:
 		return
