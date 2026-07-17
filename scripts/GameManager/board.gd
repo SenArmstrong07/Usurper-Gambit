@@ -139,7 +139,7 @@ func setup_initial_pieces() -> void:
 		spawn_piece("pawn", 1, Vector2i(x, 1))
 
 	var white_back_rank := ["rook", "knight", "bishop", "queen", "king", "bishop", "knight", "rook"]
-	var black_back_rank := ["rook", "knight", "bishop", "king", "queen", "bishop", "knight", "rook"]
+	var black_back_rank := ["rook", "knight", "bishop", "queen", "king", "bishop", "knight", "rook"]
 	for index in range(BOARD_SIZE):
 		spawn_piece(white_back_rank[index], 0, Vector2i(index, 7))
 		spawn_piece(black_back_rank[index], 1, Vector2i(index, 0))
@@ -244,7 +244,7 @@ func is_castling_move_legal(king: Unit, destination: Vector2i) -> bool:
 			path_clear = false
 			break
 
-	if not path_clear:
+	if not path_clear or is_cell_occupied(destination) or is_cell_occupied(rook_to):
 		return false
 
 	var squares_to_check := path_cells.duplicate()

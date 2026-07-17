@@ -5,3 +5,4 @@
 
 [node name="Rook" unique_id=378181553 instance=ExtResource("1_d36u8")]
 script = ExtResource("2_1gx11")
+piece_type = "rook"
