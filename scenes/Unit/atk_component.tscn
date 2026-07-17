@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bndahpoyije8w"]
+
+[ext_resource type="Script" uid="uid://c7v4vkqlwlc2x" path="res://scripts/Unit/atk_component.gd" id="1_p4x0t"]
+
+[node name="AtkComponent" type="Node2D" unique_id=67837916]
+script = ExtResource("1_p4x0t")

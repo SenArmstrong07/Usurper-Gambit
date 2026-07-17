@@ -2,7 +2,13 @@
 
 [ext_resource type="PackedScene" uid="uid://bbvtn35k6lvfq" path="res://scenes/Unit/Unit.tscn" id="1_0r133"]
 [ext_resource type="Script" uid="uid://s73nrj3um6ke" path="res://scripts/Unit/bishop.gd" id="2_hs85x"]
+[ext_resource type="PackedScene" uid="uid://3go4vh0vf57y" path="res://scenes/Unit/health_component.tscn" id="3_s57c3"]
+[ext_resource type="PackedScene" uid="uid://bndahpoyije8w" path="res://scenes/Unit/atk_component.tscn" id="4_m70ks"]
 
 [node name="Bishop" unique_id=378181553 instance=ExtResource("1_0r133")]
 script = ExtResource("2_hs85x")
 piece_type = "bishop"
+
+[node name="HealthComponent" parent="." index="0" unique_id=985653292 instance=ExtResource("3_s57c3")]
+
+[node name="AtkComponent" parent="." index="1" unique_id=67837916 instance=ExtResource("4_m70ks")]

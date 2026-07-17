@@ -2,9 +2,6 @@ extends Node2D
 class_name Unit
 
 # STATS
-@export var max_hp: int = 100
-var hp: int
-@export var atk_range: int = 1
 @export var armor: int = 0
 @export var team: int = 0
 @export var piece_type: String = "pawn"
@@ -25,7 +22,6 @@ func _ready() -> void:
 	add_to_group("Unit")
 	set_process_input(true)
 	input_pickable = true
-	hp = max_hp
 	if sprite_node == null:
 		create_sprite()
 

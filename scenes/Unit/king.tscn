@@ -2,7 +2,10 @@
 
 [ext_resource type="Script" uid="uid://bqwxqlk0whc7w" path="res://scripts/Unit/king.gd" id="1_king"]
 [ext_resource type="PackedScene" uid="uid://bbvtn35k6lvfq" path="res://scenes/Unit/Unit.tscn" id="1_td8vk"]
+[ext_resource type="PackedScene" uid="uid://3go4vh0vf57y" path="res://scenes/Unit/health_component.tscn" id="3_154yl"]
 
 [node name="King" unique_id=378181553 instance=ExtResource("1_td8vk")]
 script = ExtResource("1_king")
 piece_type = "king"
+
+[node name="HealthComponent" parent="." index="0" unique_id=985653292 instance=ExtResource("3_154yl")]

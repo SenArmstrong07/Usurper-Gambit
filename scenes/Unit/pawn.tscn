@@ -2,6 +2,12 @@
 
 [ext_resource type="PackedScene" uid="uid://bbvtn35k6lvfq" path="res://scenes/Unit/Unit.tscn" id="1_uoqet"]
 [ext_resource type="Script" uid="uid://e7f58w5e143y" path="res://scripts/Unit/pawn.gd" id="2_a2g4u"]
+[ext_resource type="PackedScene" uid="uid://3go4vh0vf57y" path="res://scenes/Unit/health_component.tscn" id="3_fqoqf"]
+[ext_resource type="PackedScene" uid="uid://bndahpoyije8w" path="res://scenes/Unit/atk_component.tscn" id="4_tn0x4"]
 
 [node name="Pawn" unique_id=378181553 instance=ExtResource("1_uoqet")]
 script = ExtResource("2_a2g4u")
+
+[node name="HealthComponent" parent="." index="0" unique_id=985653292 instance=ExtResource("3_fqoqf")]
+
+[node name="AtkComponent" parent="." index="1" unique_id=67837916 instance=ExtResource("4_tn0x4")]
