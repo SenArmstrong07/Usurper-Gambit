@@ -4,12 +4,8 @@ class_name Unit
 # STATS
 @export var max_hp: int = 100
 var hp: int
-@export var atk: int = 1
 @export var atk_range: int = 1
 @export var armor: int = 0
-@export var is_captured: bool = false
-@export var mana: int = 0
-@export var max_mana: int = 20
 @export var team: int = 0
 @export var piece_type: String = "pawn"
 
@@ -113,42 +109,6 @@ func is_valid_move() -> bool:
 
 
 func get_valid_moves(board: Board) -> Array[Vector2i]:
-	#var moves: Array[Vector2i] = []
-	#var normalized_type := piece_type.to_lower()
-#
-	#match normalized_type:
-		#"pawn":
-			#moves = get_pawn_moves(board)
-		#"rook":
-			#moves = get_sliding_moves(board, [
-				#Vector2i(0, 1),
-				#Vector2i(0, -1),
-				#Vector2i(1, 0),
-				#Vector2i(-1, 0)
-			#])
-		#"bishop":
-			#moves = get_sliding_moves(board, [
-				#Vector2i(1, 1),
-				#Vector2i(-1, 1),
-				#Vector2i(1, -1),
-				#Vector2i(-1, -1)
-			#])
-		#"queen":
-			#moves = get_sliding_moves(board, [
-				#Vector2i(0, 1),
-				#Vector2i(0, -1),
-				#Vector2i(1, 0),
-				#Vector2i(-1, 0),
-				#Vector2i(1, 1),
-				#Vector2i(-1, 1),
-				#Vector2i(1, -1),
-				#Vector2i(-1, -1)
-			#])
-		#"knight":
-			#moves = get_knight_moves(board)
-		##"king":
-			##moves = king.get_valid_moves(board)
-
 	return []
 
 func get_pawn_moves(board: Board) -> Array[Vector2i]:
