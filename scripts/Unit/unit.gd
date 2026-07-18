@@ -12,6 +12,15 @@ var current_target: Unit
 var board: Board
 var has_moved: bool = false
 
+# MOVEMENT STUFF
+var movement_component: MovementComponent = null
+const PawnMovement = preload("res://scripts/Unit/Movement/pawn_movement.gd")
+const KnightMovement = preload("res://scripts/Unit/Movement/knight_movement.gd")
+const BishopMovement = preload("res://scripts/Unit/Movement/bishop_movement.gd")
+const RookMovement = preload("res://scripts/Unit/Movement/rook_movement.gd")
+const QueenMovement = preload("res://scripts/Unit/Movement/queen_movement.gd")
+const KingMovement = preload("res://scripts/Unit/Movement/king_movement.gd")
+
 # UI STUFF
 var is_dragging : bool = false
 var input_pickable : bool = true
@@ -24,6 +33,7 @@ func _ready() -> void:
 	input_pickable = true
 	if sprite_node == null:
 		create_sprite()
+	init_movement_component()
 
 func _process(delta: float) -> void:
 	update_combat(delta)
@@ -103,78 +113,41 @@ func is_enemy_in_range() -> bool:
 func is_valid_move() -> bool:
 	return false
 
-
 func get_valid_moves(board: Board) -> Array[Vector2i]:
-	return []
+	if movement_component == null:
+		return []
+	return movement_component.get_valid_moves(board)
 
-func get_pawn_moves(board: Board) -> Array[Vector2i]:
-	var moves: Array[Vector2i] = []
-	var direction := -1 if team == 0 else 1
-	var one_step := grid_pos + Vector2i(0, direction)
-	var two_step := grid_pos + Vector2i(0, direction * 2)
-	var start_row := 6 if team == 0 else 1
+func set_movement(new_behavior: MovementBehavior) -> void:
+	if movement_component == null:
+		init_movement_component()
+	movement_component.set_movement(new_behavior)
 
-	if board.is_within_bounds(one_step) and not board.is_cell_occupied(one_step):
-		moves.append(one_step)
-		if grid_pos.y == start_row and board.is_within_bounds(two_step) and not board.is_cell_occupied(two_step):
-			moves.append(two_step)
+func init_movement_component() -> void:
+	if has_node("MovementComponent"):
+		movement_component = $MovementComponent
+	else:
+		movement_component = MovementComponent.new()
+		add_child(movement_component)
 
-	for delta_x in [-1, 1]:
-		var capture_cell := grid_pos + Vector2i(delta_x, direction)
-		if not board.is_within_bounds(capture_cell):
-			continue
-		var target := board.get_unit_at(capture_cell)
-		if target != null and target.team != team:
-			moves.append(capture_cell)
+	movement_component.set_movement(create_default_movement())
 
-	if board.last_move_piece != null and board.last_move_piece.piece_type.to_lower() == "pawn" and abs(board.last_move_from.y - board.last_move_to.y) == 2:
-		var passant_target := grid_pos + Vector2i(board.last_move_to.x - grid_pos.x, direction)
-		if abs(board.last_move_to.x - grid_pos.x) == 1 and board.last_move_to.y == grid_pos.y and destination_is_en_passant_target(board, passant_target, grid_pos, direction):
-			moves.append(passant_target)
-
-	return moves
-
-func destination_is_en_passant_target(board: Board, cell: Vector2i, pawn_pos: Vector2i, pawn_direction: int) -> bool:
-	if not board.is_within_bounds(cell):
-		return false
-	var target := board.get_unit_at(cell)
-	return target == null and cell.x == board.last_move_to.x and cell.y == pawn_pos.y + pawn_direction
-
-func get_sliding_moves(board: Board, directions: Array[Vector2i]) -> Array[Vector2i]:
-	var moves: Array[Vector2i] = []
-	for direction in directions:
-		var current := grid_pos + direction
-		while board.is_within_bounds(current):
-			var occupant := board.get_unit_at(current)
-			if occupant == null:
-				moves.append(current)
-			else:
-				if occupant.team != team:
-					moves.append(current)
-				break
-			current += direction
-	return moves
-
-func get_knight_moves(board: Board) -> Array[Vector2i]:
-	var moves: Array[Vector2i] = []
-	var offsets := [
-		Vector2i(1, 2),
-		Vector2i(2, 1),
-		Vector2i(-1, 2),
-		Vector2i(-2, 1),
-		Vector2i(1, -2),
-		Vector2i(2, -1),
-		Vector2i(-1, -2),
-		Vector2i(-2, -1)
-	]
-	for offset in offsets:
-		var target : Vector2i = grid_pos + offset
-		if not board.is_within_bounds(target):
-			continue
-		var occupant := board.get_unit_at(target)
-		if occupant == null or occupant.team != team:
-			moves.append(target)
-	return moves
+func create_default_movement() -> MovementBehavior:
+	match piece_type.to_lower():
+		"pawn":
+			return PawnMovement.new()
+		"knight":
+			return KnightMovement.new()
+		"bishop":
+			return BishopMovement.new()
+		"rook":
+			return RookMovement.new()
+		"queen":
+			return QueenMovement.new()
+		"king":
+			return KingMovement.new()
+		_:
+			return MovementBehavior.new()
 
 # Filter moves that would leave the king in check
 func filter_check_moves(board: Board, moves: Array[Vector2i]) -> Array[Vector2i]:
@@ -199,14 +172,65 @@ func update_check_visual(is_in_check: bool) -> void:
 func capture():
 	print("Cell Captured")
 
+func get_attack_component() -> AtkComponent:
+	var attack_node := get_node_or_null("AtkComponent") as AtkComponent
+	return attack_node
+
+func get_health_component() -> HealthComponent:
+	var health_node := get_node_or_null("HealthComponent") as HealthComponent
+	return health_node
+
+func get_attack_damage() -> int:
+	var attack_component := get_attack_component()
+	if attack_component == null:
+		return 0
+	return attack_component.get_damage_amount()
+
+func take_damage(amount: float) -> bool:
+	var health_component := get_health_component()
+	if health_component == null:
+		return false
+	return health_component.take_damage(amount)
+
+func heal(amount: float) -> void:
+	var health_component := get_health_component()
+	if health_component != null:
+		health_component.heal(amount)
+
+func is_alive() -> bool:
+	var health_component := get_health_component()
+	if health_component == null:
+		return true
+	return health_component.is_alive()
+
+func resolve_combat(target: Unit) -> String:
+	if target == null or target == self:
+		return "invalid"
+	var attack_component := get_attack_component()
+	var target_attack_component := target.get_attack_component()
+	if attack_component == null or target_attack_component == null:
+		return "invalid"
+
+	target.take_damage(attack_component.get_damage_amount())
+	if target.is_alive():
+		take_damage(target_attack_component.get_damage_amount())
+
+	if is_alive() and not target.is_alive():
+		return "attacker_won"
+	if not is_alive() and target.is_alive():
+		return "defender_won"
+	if not is_alive() and not target.is_alive():
+		return "both_dead"
+	return "draw"
+
+func die() -> void:
+	if board != null:
+		board.remove_unit(self)
+	else:
+		queue_free()
+
 func attack():
 	print("Unit used an attack")
-
-func die():
-	print("Unit has died")
-
-func heal(amount):
-	print("Unit's HP was replenished by: " + str(amount) + " points")
 
 func find_target():
 	print("Unit found target")

@@ -200,6 +200,7 @@ func place_piece(unit: Unit, piece_type_name: String, team_id: int, grid_pos: Ve
 	unit.grid_pos = grid_pos
 	unit.position = chess_board.map_to_local(grid_pos)
 	unit.apply_sprite()
+	unit.init_movement_component()
 	print(grid_pos, " -> ", chess_board.map_to_local(grid_pos))
 	print("Unit position:", position)
 	print("Sprite position:", unit.sprite_node.position)
@@ -260,11 +261,9 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 		return
 
 	var start_pos := unit.grid_pos
-	var captured_piece: Unit = null
 	var rook_to_move: Unit = null
 	var rook_from: Vector2i = Vector2i.ZERO
 	var rook_to: Vector2i = Vector2i.ZERO
-	var en_passant_capture := false
 	var piece_name := unit.piece_type.to_lower()
 
 	if piece_name == "pawn":
@@ -282,13 +281,26 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 				return
 		elif destination == left_capture or destination == right_capture:
 			var target := get_unit_at(destination)
-			if target != null and target.team != unit.team:
-				captured_piece = target
-			elif target == null and last_move_piece != null and last_move_piece.piece_type.to_lower() == "pawn" and abs(last_move_from.y - last_move_to.y) == 2 and last_move_to.y == start_pos.y and last_move_to.x == start_pos.x + (1 if destination.x > start_pos.x else -1):
-				captured_piece = last_move_piece
-				en_passant_capture = true
-			else:
+			if target == null or target.team == unit.team:
 				return
+			var combat_result := unit.resolve_combat(target)
+			if combat_result != "attacker_won":
+				return
+			occupied_cells.erase(start_pos)
+			occupied_cells[destination] = unit
+			unit.grid_pos = destination
+			unit.position = chess_board.map_to_local(destination)
+			unit.has_moved = true
+			if piece_name == "pawn" and (destination.y == 0 or destination.y == 7):
+				unit.piece_type = "queen"
+				unit.apply_sprite()
+			unit.init_movement_component()
+			last_move_from = start_pos
+			last_move_to = destination
+			last_move_piece = unit
+			SignalBus.unit_moved.emit(unit, start_pos, destination)
+			update_king_check_visuals()
+			return
 		else:
 			return
 	elif piece_name == "king" and abs(destination.x - start_pos.x) == 2 and start_pos.y == destination.y:
@@ -299,15 +311,13 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 		rook_to = start_pos + Vector2i(rook_direction * 1, 0)
 		rook_to_move = get_unit_at(rook_from)
 
-	# Handle captures for any piece (non-pawn pieces like queen, rook, bishop, knight)
-	if captured_piece == null:
-		var target_at_destination := get_unit_at(destination)
-		if target_at_destination != null and target_at_destination.team != unit.team:
-			captured_piece = target_at_destination
+	var target_at_destination := get_unit_at(destination)
+	if target_at_destination != null and target_at_destination.team != unit.team:
+		var combat_result := unit.resolve_combat(target_at_destination)
+		if combat_result != "attacker_won":
+			return
 
 	occupied_cells.erase(start_pos)
-	if captured_piece != null:
-		remove_unit(captured_piece)
 	if rook_to_move != null:
 		occupied_cells.erase(rook_from)
 		rook_to_move.grid_pos = rook_to
@@ -326,10 +336,7 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 	if piece_name == "pawn" and (destination.y == 0 or destination.y == 7):
 		unit.piece_type = "queen"
 		unit.apply_sprite()
-		print("Unit position:", position)
-		print("Sprite position:", unit.sprite_node.position)
-		print("Sprite offset:", unit.sprite_node.offset)
-		print("Centered:", unit.sprite_node.centered)
+		unit.init_movement_component()
 
 	last_move_from = start_pos
 	last_move_to = destination

@@ -1,15 +1,18 @@
 extends Node2D
 class_name AtkComponent
 
-@export var ATTACK_DMG: int
+@export var ATTACK_DMG: int = 2
 @export var ATTACK_RANGE: int = 1
 var current_atk: int
 
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	current_atk = ATTACK_DMG
 
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 	pass
+
+func get_damage_amount() -> int:
+	return current_atk
+
+func can_attack(target: Unit) -> bool:
+	return target != null and target.is_alive()
