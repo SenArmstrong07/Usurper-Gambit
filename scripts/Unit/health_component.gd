@@ -33,4 +33,3 @@ func revive() -> void:
 
 func is_alive() -> bool:
 	return health > 0
-

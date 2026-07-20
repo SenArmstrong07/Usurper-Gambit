@@ -15,13 +15,20 @@ var last_move_piece: Unit = null
 @onready var chess_board: TileMapLayer = $chessBoard
 @onready var highlight_markers: Node2D = $HighlightMarkers
 const HighlightScene = preload("res://scenes/UI/HighlightCells.tscn")
+const HighlightAtkScene = preload("res://scenes/UI/HighlightAtk.tscn")
+const ActionPopupScene = preload("res://scenes/UI/ActionPopup.tscn")
 var highlighted_cells: Array
+var post_move_unit: Unit = null
+var pending_attack_unit: Unit = null
+var pending_attack_targets: Array[Vector2i] = []
 
 enum BoardState {
 	IDLE,
 	SELECTING,
 	MOVING,
-	COMBAT
+	COMBAT,
+	AWAITING_ACTION,
+	AWAITING_ATTACK_TARGET
 }
 
 var board_state = BoardState.IDLE
@@ -58,6 +65,27 @@ func _input(event: InputEvent) -> void:
 		print("Selected Cell: ", clicked_cell)
 
 func handle_click(cell: Vector2i) -> void:
+	if board_state == BoardState.AWAITING_ATTACK_TARGET:
+		if pending_attack_unit != null and pending_attack_targets.has(cell):
+			var target := get_unit_at(cell)
+			if target != null and target.team != pending_attack_unit.team:
+				pending_attack_unit.resolve_combat(target)
+				clear_highlights()
+				pending_attack_unit = null
+				pending_attack_targets.clear()
+				post_move_unit = null
+				board_state = BoardState.IDLE
+				check_game_state()
+				return
+		clear_highlights()
+		pending_attack_unit = null
+		pending_attack_targets.clear()
+		board_state = BoardState.IDLE
+		return
+
+	if board_state != BoardState.IDLE and board_state != BoardState.SELECTING:
+		return
+
 	var unit := get_unit_at(cell)
 	if unit != null and unit.team == current_turn:
 		select_unit(unit)
@@ -65,10 +93,15 @@ func handle_click(cell: Vector2i) -> void:
 
 	if selected_unit != null:
 		if can_move_to(selected_unit, cell):
-			move_unit(selected_unit, cell)
-			check_game_state()
-			selected_unit = null
-			clear_highlights()
+			if move_unit(selected_unit, cell):
+				var moved_unit := selected_unit
+				selected_unit = null
+				clear_highlights()
+				request_post_move_action(moved_unit)
+			else:
+				# combat failed or move invalid
+				selected_unit = null
+				clear_highlights()
 		else:
 			deselect()
 
@@ -102,8 +135,10 @@ func _on_unit_dropped(unit: Unit, cell: Vector2i) -> void:
 		deselect()
 		return
 	if can_move_to(unit, cell):
-		move_unit(unit, cell)
-		check_game_state()
+		if move_unit(unit, cell):
+			request_post_move_action(unit)
+		else:
+			unit.position = chess_board.map_to_local(unit.grid_pos)
 	else:
 		unit.position = chess_board.map_to_local(unit.grid_pos)
 	deselect()
@@ -122,12 +157,15 @@ func world_to_grid(pos: Vector2) -> Vector2i:
 	return chess_board.local_to_map(chess_board.to_local(pos))
 
 #choosing first
-func highlight_cells(cells: Array[Vector2i]) -> void:
+func highlight_cells(cells: Array[Vector2i], use_attack_texture: bool = false) -> void:
 	clear_highlights()
 	for cell in cells:
-		var marker = HighlightScene.instantiate()
+		var marker: Node2D
+		if use_attack_texture:
+			marker = HighlightAtkScene.instantiate()
+		else:
+			marker = HighlightScene.instantiate()
 		marker.position = chess_board.map_to_local(cell)
-		#var world_pos := chess_board.to_global(chess_board.map_to_local(cell))
 		highlight_markers.add_child(marker)
 		highlighted_cells.append(marker)
 	highlight_markers.visible = true
@@ -256,9 +294,9 @@ func is_castling_move_legal(king: Unit, destination: Vector2i) -> bool:
 
 	return true
 
-func move_unit(unit: Unit, destination: Vector2i) -> void:
+func move_unit(unit: Unit, destination: Vector2i) -> bool:
 	if not is_within_bounds(destination):
-		return
+		return false
 
 	var start_pos := unit.grid_pos
 	var rook_to_move: Unit = null
@@ -275,17 +313,17 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 
 		if destination == one_step:
 			if get_unit_at(destination) != null:
-				return
+				return false
 		elif destination == two_step:
 			if get_unit_at(one_step) != null or get_unit_at(destination) != null:
-				return
+				return false
 		elif destination == left_capture or destination == right_capture:
 			var target := get_unit_at(destination)
 			if target == null or target.team == unit.team:
-				return
+				return false
 			var combat_result := unit.resolve_combat(target)
 			if combat_result != "attacker_won":
-				return
+				return false
 			occupied_cells.erase(start_pos)
 			occupied_cells[destination] = unit
 			unit.grid_pos = destination
@@ -300,12 +338,12 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 			last_move_piece = unit
 			SignalBus.unit_moved.emit(unit, start_pos, destination)
 			update_king_check_visuals()
-			return
+			return true
 		else:
-			return
+			return false
 	elif piece_name == "king" and abs(destination.x - start_pos.x) == 2 and start_pos.y == destination.y:
 		if not is_castling_move_legal(unit, destination):
-			return
+			return false
 		var rook_direction := -1 if destination.x < start_pos.x else 1
 		rook_from = start_pos + Vector2i(rook_direction * (4 if rook_direction < 0 else 3), 0)
 		rook_to = start_pos + Vector2i(rook_direction * 1, 0)
@@ -315,7 +353,7 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 	if target_at_destination != null and target_at_destination.team != unit.team:
 		var combat_result := unit.resolve_combat(target_at_destination)
 		if combat_result != "attacker_won":
-			return
+			return false
 
 	occupied_cells.erase(start_pos)
 	if rook_to_move != null:
@@ -344,6 +382,7 @@ func move_unit(unit: Unit, destination: Vector2i) -> void:
 
 	SignalBus.unit_moved.emit(unit, start_pos, destination)
 	update_king_check_visuals()
+	return true
 
 func remove_unit(unit: Unit) -> void:
 	if unit == null:
@@ -365,6 +404,57 @@ func can_move_to(unit: Unit, destination: Vector2i) -> bool:
 	if unit == null:
 		return false
 	return destination in unit.get_valid_moves(self)
+
+func request_post_move_action(unit: Unit) -> void:
+	if unit == null:
+		return
+	post_move_unit = unit
+	board_state = BoardState.AWAITING_ACTION
+	var can_attack := false
+	for enemy in units.get_children():
+		if not (enemy is Unit):
+			continue
+		if enemy.team == unit.team:
+			continue
+		if unit.can_attack_target(enemy):
+			can_attack = true
+			break
+	var popup := ActionPopupScene.instantiate() as Window
+	add_child(popup)
+	popup.configure(can_attack, "Wait or attack?")
+	popup.wait_selected.connect(_on_action_wait)
+	popup.attack_selected.connect(_on_action_attack)
+	popup.popup_centered()
+
+func _on_action_wait() -> void:
+	board_state = BoardState.IDLE
+	check_game_state()
+
+func _on_action_attack() -> void:
+	if post_move_unit == null:
+		board_state = BoardState.IDLE
+		return
+	var enemy_list := []
+	for enemy in units.get_children():
+		if not (enemy is Unit):
+			continue
+		if enemy.team == post_move_unit.team:
+			continue
+		if post_move_unit.can_attack_target(enemy):
+			enemy_list.append(enemy)
+	if enemy_list.is_empty():
+		board_state = BoardState.IDLE
+		check_game_state()
+		return
+	pending_attack_unit = post_move_unit
+	pending_attack_targets.clear()
+	for enemy in enemy_list:
+		pending_attack_targets.append(enemy.grid_pos)
+	board_state = BoardState.AWAITING_ATTACK_TARGET
+	var attack_targets := post_move_unit.get_attack_targets(self)
+	if attack_targets.is_empty():
+		attack_targets = pending_attack_targets
+	highlight_cells(attack_targets, true)
 
 func is_cell_occupied(cell: Vector2i) -> bool:
 	return occupied_cells.has(cell)
@@ -388,73 +478,11 @@ func is_cell_attacked_by_team(cell: Vector2i, attacking_team: int) -> bool:
 			return true
 	return false
 
-# Check if a piece can attack a specific cell (uses raw move calculations)
+# Check if a piece can attack a specific cell using its attack pattern
 func can_piece_attack_cell(piece: Unit, target_cell: Vector2i) -> bool:
-	var piece_type := piece.piece_type.to_lower()
-	var direction := -1 if piece.team == 0 else 1
-	
-	match piece_type:
-		"pawn":
-			# Pawns attack diagonally one step forward
-			var left_attack := piece.grid_pos + Vector2i(-1, direction)
-			var right_attack := piece.grid_pos + Vector2i(1, direction)
-			return target_cell == left_attack or target_cell == right_attack
-		
-		"knight":
-			# Knight moves in L-shape
-			var knight_moves : Array[Vector2i] = [
-				Vector2i(2, 1), Vector2i(2, -1), Vector2i(-2, 1), Vector2i(-2, -1),
-				Vector2i(1, 2), Vector2i(1, -2), Vector2i(-1, 2), Vector2i(-1, -2)
-			]
-			for move in knight_moves:
-				if piece.grid_pos + move == target_cell:
-					return true
-			return false
-		
-		"bishop":
-			# Bishop moves diagonally
-			return can_sliding_piece_attack(piece, target_cell, [
-				Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
-			])
-		
-		"rook":
-			# Rook moves horizontally/vertically
-			return can_sliding_piece_attack(piece, target_cell, [
-				Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)
-			])
-		
-		"queen":
-			# Queen moves like bishop and rook
-			return can_sliding_piece_attack(piece, target_cell, [
-				Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0),
-				Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
-			])
-		
-		"king":
-			# King can attack adjacent cells
-			var king_moves : Array[Vector2i] = [
-				Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
-				Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
-			]
-			for move in king_moves:
-				if piece.grid_pos + move == target_cell:
-					return true
-			return false
-	
-	return false
-
-# Helper for sliding pieces (bishop, rook, queen)
-func can_sliding_piece_attack(piece: Unit, target_cell: Vector2i, directions: Array[Vector2i]) -> bool:
-	for direction in directions:
-		var current := piece.grid_pos + direction
-		while is_within_bounds(current):
-			if current == target_cell:
-				return true
-			var occupant := get_unit_at(current)
-			if occupant != null:
-				break
-			current += direction
-	return false
+	if piece == null:
+		return false
+	return piece.can_attack_cell(target_cell)
 
 # Check if the king of a specific team is in check
 func is_king_in_check(team: int) -> bool:

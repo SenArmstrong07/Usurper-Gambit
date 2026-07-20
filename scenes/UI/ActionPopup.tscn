@@ -1,0 +1,26 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource path="res://scripts/UI/action_popup.gd" type="Script" id=1]
+
+[node name="ActionPopup" type="Window"]
+script = ExtResource(1)
+title = "Action"
+exclusive = true
+size = Vector2i(300, 150)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+custom_constants/separation = 8.0
+rect_min_size = Vector2(280, 140)
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 290.0
+margin_bottom = 140.0
+
+[node name="InfoLabel" type="Label" parent="VBoxContainer"]
+text = "Choose an action"
+align = 1
+
+[node name="WaitButton" type="Button" parent="VBoxContainer"]
+text = "Wait"
+
+[node name="AttackButton" type="Button" parent="VBoxContainer"]
+text = "Attack"

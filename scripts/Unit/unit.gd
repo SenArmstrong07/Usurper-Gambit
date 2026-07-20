@@ -34,6 +34,7 @@ func _ready() -> void:
 	if sprite_node == null:
 		create_sprite()
 	init_movement_component()
+	init_attack_component()
 
 func _process(delta: float) -> void:
 	update_combat(delta)
@@ -51,27 +52,11 @@ func _input(event: InputEvent) -> void:
 	if mouse_event.button_index != MOUSE_BUTTON_LEFT:
 		return
 
-	var mouse_position := get_global_mouse_position()
 	if mouse_event.pressed:
+		var mouse_position := get_global_mouse_position()
 		if is_under_mouse(mouse_position):
-			if board != null and board.dragging_unit != null and board.dragging_unit != self:
-				return
 			if board != null:
-				board.dragging_unit = self
 				board.select_unit(self)
-			is_dragging = true
-			drag_offset = global_position - mouse_position
-			SignalBus.unit_drag_started.emit(self)
-		return
-
-	if is_dragging:
-		is_dragging = false
-		SignalBus.unit_dragged.emit(self)
-		if board != null:
-			board.dragging_unit = null
-			SignalBus.unit_dropped.emit(self, board.world_to_grid(get_global_mouse_position()))
-		else:
-			SignalBus.unit_dropped.emit(self, grid_pos)
 
 func update_combat(delta):
 	pass
@@ -132,6 +117,55 @@ func init_movement_component() -> void:
 
 	movement_component.set_movement(create_default_movement())
 
+func init_attack_component() -> void:
+	var attack_component := get_attack_component()
+	if attack_component == null:
+		return
+	match piece_type.to_lower():
+		"pawn":
+			attack_component.damage = 2
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 1
+			attack_component.pattern = "adjacent"
+			attack_component.needs_line_of_sight = false
+		"rook":
+			attack_component.damage = 3
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 1
+			attack_component.pattern = "adjacent"
+			attack_component.needs_line_of_sight = false
+		"knight":
+			attack_component.damage = 5
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 1
+			attack_component.pattern = "adjacent"
+			attack_component.needs_line_of_sight = false
+		"bishop":
+			attack_component.damage = 4
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 6
+			attack_component.pattern = "bishop_ray"
+			attack_component.needs_line_of_sight = true
+		"queen":
+			attack_component.damage = 10
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 6
+			attack_component.pattern = "queen_ray"
+			attack_component.needs_line_of_sight = true
+		"king":
+			attack_component.damage = 2
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 1
+			attack_component.pattern = "adjacent"
+			attack_component.needs_line_of_sight = false
+		_:
+			attack_component.damage = 2
+			attack_component.minimum_range = 1
+			attack_component.maximum_range = 1
+			attack_component.pattern = "adjacent"
+			attack_component.needs_line_of_sight = false
+	attack_component.current_atk = attack_component.damage
+
 func create_default_movement() -> MovementBehavior:
 	match piece_type.to_lower():
 		"pawn":
@@ -185,6 +219,22 @@ func get_attack_damage() -> int:
 	if attack_component == null:
 		return 0
 	return attack_component.get_damage_amount()
+
+func get_attack_targets(board: Board) -> Array[Vector2i]:
+	var attack_component := get_attack_component()
+	if attack_component == null or movement_component == null:
+		return []
+	return movement_component.get_attack_targets(board, attack_component)
+
+func can_attack_target(target: Unit) -> bool:
+	if target == null or target == self or board == null:
+		return false
+	return target.grid_pos in get_attack_targets(board)
+
+func can_attack_cell(target_cell: Vector2i) -> bool:
+	if board == null:
+		return false
+	return target_cell in get_attack_targets(board)
 
 func take_damage(amount: float) -> bool:
 	var health_component := get_health_component()
