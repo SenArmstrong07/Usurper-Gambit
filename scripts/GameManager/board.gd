@@ -106,8 +106,21 @@ func select_unit(unit: Unit) -> void:
 	if unit.team != current_turn:
 		return
 	selected_unit = unit
-	var moves := unit.get_valid_moves(self)
-	highlight_cells(moves)
+	clear_highlights()
+	var attackable_enemies := get_attackable_enemies(unit)
+	var move_targets := get_non_attack_moves(unit)
+	if attackable_enemies.is_empty():
+		board_state = BoardState.SELECTING
+		highlight_cells(move_targets)
+	else:
+		board_state = BoardState.AWAITING_ACTION
+		var can_move := move_targets.size() > 0
+		var popup := ActionPopupScene.instantiate() as Window
+		add_child(popup)
+		popup.configure(can_move, true, "Move or attack?", "Move", "Attack")
+		popup.wait_selected.connect(_on_selection_move)
+		popup.attack_selected.connect(_on_selection_attack)
+		popup.popup_centered()
 	SignalBus.unit_selected.emit(unit)
 
 func deselect() -> void:
@@ -418,10 +431,83 @@ func request_post_move_action(unit: Unit) -> void:
 			break
 	var popup := ActionPopupScene.instantiate() as Window
 	add_child(popup)
-	popup.configure(can_attack, "Wait or attack?")
+	popup.configure(true, can_attack, "Wait or attack?", "Wait", "Attack")
 	popup.wait_selected.connect(_on_action_wait)
 	popup.attack_selected.connect(_on_action_attack)
 	popup.popup_centered()
+
+func get_attackable_enemies(unit: Unit) -> Array[Unit]:
+	var enemies: Array[Unit] = []
+	if unit == null:
+		return enemies
+	for enemy in units.get_children():
+		if not (enemy is Unit):
+			continue
+		if enemy.team == unit.team:
+			continue
+		if unit.can_attack_target(enemy):
+			enemies.append(enemy)
+	return enemies
+
+func _on_selection_move() -> void:
+	if selected_unit == null:
+		board_state = BoardState.IDLE
+		clear_highlights()
+		return
+	board_state = BoardState.SELECTING
+	var moves := get_non_attack_moves(selected_unit)
+	if moves.is_empty():
+		selected_unit = null
+		clear_highlights()
+		board_state = BoardState.IDLE
+		return
+	highlight_cells(moves)
+
+func _on_selection_attack() -> void:
+	if selected_unit == null:
+		board_state = BoardState.IDLE
+		return
+	var enemy_list := get_attackable_enemies(selected_unit)
+	if enemy_list.is_empty():
+		board_state = BoardState.IDLE
+		return
+	pending_attack_unit = selected_unit
+	pending_attack_targets.clear()
+	for enemy in enemy_list:
+		pending_attack_targets.append(enemy.grid_pos)
+	board_state = BoardState.AWAITING_ATTACK_TARGET
+	var attack_targets := selected_unit.get_attack_targets(self)
+	if attack_targets.is_empty():
+		attack_targets = pending_attack_targets
+	highlight_cells(attack_targets, true)
+
+func get_non_attack_moves(unit: Unit) -> Array[Vector2i]:
+	if unit == null:
+		return []
+	if unit.piece_type.to_lower() == "pawn":
+		return get_pawn_forward_moves(unit)
+	return get_empty_moves(unit)
+
+func get_empty_moves(unit: Unit) -> Array[Vector2i]:
+	var moves: Array[Vector2i] = []
+	for destination in unit.get_valid_moves(self):
+		if not is_cell_occupied(destination):
+			moves.append(destination)
+	return moves
+
+func get_pawn_forward_moves(unit: Unit) -> Array[Vector2i]:
+	var moves: Array[Vector2i] = []
+	if unit == null:
+		return moves
+	var direction := -1 if unit.team == 0 else 1
+	var one_step := unit.grid_pos + Vector2i(0, direction)
+	if is_within_bounds(one_step) and not is_cell_occupied(one_step):
+		moves.append(one_step)
+		var start_row := 6 if unit.team == 0 else 1
+		var two_step := unit.grid_pos + Vector2i(0, direction * 2)
+		if unit.grid_pos.y == start_row and is_within_bounds(two_step) and not is_cell_occupied(two_step):
+			moves.append(two_step)
+	return moves
 
 func _on_action_wait() -> void:
 	board_state = BoardState.IDLE

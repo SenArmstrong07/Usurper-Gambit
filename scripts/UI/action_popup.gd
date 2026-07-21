@@ -11,8 +11,11 @@ func _ready() -> void:
 	wait_button.pressed.connect(_on_wait_pressed)
 	attack_button.pressed.connect(_on_attack_pressed)
 
-func configure(can_attack: bool, message: String = "Choose an action") -> void:
+func configure(can_move: bool, can_attack: bool, message: String = "Choose an action", first_text: String = "Wait", second_text: String = "Attack") -> void:
 	info_label.text = message
+	wait_button.text = first_text
+	attack_button.text = second_text
+	wait_button.disabled = not can_move
 	attack_button.disabled = not can_attack
 
 func _on_wait_pressed() -> void:
