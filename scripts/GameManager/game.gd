@@ -12,16 +12,19 @@ var reset_button: Button
 var game_over: bool = false
 
 func _ready() -> void:
-	board = get_node("Board") as Board
+	board = get_node_or_null("Board") as Board
 	SignalBus.unit_moved.connect(_on_unit_moved)
 	SignalBus.game_over.connect(_on_game_over)
 	add_ui()
-	start_battle()
+	if board != null:
+		start_battle()
 
 func _process(delta: float) -> void:
 	pass
 
 func start_battle() -> void:
+	if board == null:
+		return
 	board.current_turn = current_player
 	board.game_over = false
 	game_over = false

@@ -17,10 +17,13 @@ var last_move_piece: Unit = null
 const HighlightScene = preload("res://scenes/UI/HighlightCells.tscn")
 const HighlightAtkScene = preload("res://scenes/UI/HighlightAtk.tscn")
 const ActionPopupScene = preload("res://scenes/UI/ActionPopup.tscn")
+const Battle_Scene = preload("res://scenes/GameManager/Battle/BattleScene.tscn")
 var highlighted_cells: Array
 var post_move_unit: Unit = null
 var pending_attack_unit: Unit = null
 var pending_attack_targets: Array[Vector2i] = []
+var pending_battle_attacker: Unit = null
+var pending_battle_defender: Unit = null
 
 enum BoardState {
 	IDLE,
@@ -69,13 +72,7 @@ func handle_click(cell: Vector2i) -> void:
 		if pending_attack_unit != null and pending_attack_targets.has(cell):
 			var target := get_unit_at(cell)
 			if target != null and target.team != pending_attack_unit.team:
-				pending_attack_unit.resolve_combat(target)
-				clear_highlights()
-				pending_attack_unit = null
-				pending_attack_targets.clear()
-				post_move_unit = null
-				board_state = BoardState.IDLE
-				check_game_state()
+				show_battle_overlay(pending_attack_unit, target)
 				return
 		clear_highlights()
 		pending_attack_unit = null
@@ -216,7 +213,7 @@ func spawn_piece(piece_type: String, team: int, grid_pos: Vector2i) -> Unit:
 	print("TileMap global:", chess_board.global_position)
 	print("Units global:", units.global_position)
 	print("Unit global:", unit.global_position)
-	print("Sprite global:", unit.sprite_node.global_position)
+	#print("Sprite global:", unit.sprite_node.global_position)
 	return unit
 
 func spawn_unit(unit_scene: PackedScene, grid_pos: Vector2i) -> Unit:
@@ -427,6 +424,26 @@ func request_post_move_action(unit: Unit) -> void:
 	popup.popup_centered()
 
 func _on_action_wait() -> void:
+	board_state = BoardState.IDLE
+	check_game_state()
+
+func show_battle_overlay(attacker: Unit, defender: Unit) -> void:
+	if attacker == null or defender == null:
+		return
+	pending_battle_attacker = attacker
+	pending_battle_defender = defender
+	pending_attack_unit = null
+	pending_attack_targets.clear()
+	clear_highlights()
+	board_state = BoardState.COMBAT
+	var battle_scene = Battle_Scene.instantiate()
+	battle_scene.set_battle_units(attacker, defender)
+	battle_scene.battle_resolved.connect(_on_battle_resolved)
+	add_child(battle_scene)
+
+func _on_battle_resolved(result: String) -> void:
+	pending_battle_attacker = null
+	pending_battle_defender = null
 	board_state = BoardState.IDLE
 	check_game_state()
 
