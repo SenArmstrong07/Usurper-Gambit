@@ -14,6 +14,7 @@ var last_move_piece: Unit = null
 @onready var units: Node2D = $Units
 @onready var chess_board: TileMapLayer = $chessBoard
 @onready var highlight_markers: Node2D = $HighlightMarkers
+@onready var _tooltip: TooltipUI = $TooltipLayer/Tooltip
 const HighlightScene = preload("res://scenes/UI/HighlightCells.tscn")
 const HighlightAtkScene = preload("res://scenes/UI/HighlightAtk.tscn")
 const ActionPopupScene = preload("res://scenes/UI/ActionPopup.tscn")
@@ -39,7 +40,6 @@ var board_state = BoardState.IDLE
 func _ready() -> void:
 	add_to_group("Board")
 	highlight_markers.visible = false
-	
 	print(chess_board.get_used_rect())
 	print("Tile size:", chess_board.tile_set.tile_size)
 	print("map_to_local(0,0):", chess_board.map_to_local(Vector2i(0,0)))
@@ -49,6 +49,7 @@ func _ready() -> void:
 	print("Units scale:", units.scale)
 	SignalBus.unit_dropped.connect(_on_unit_dropped)
 	clear_highlights()
+
 
 func _process(delta: float) -> void:
 	#queue_redraw()
@@ -452,6 +453,28 @@ func position_action_popup(popup: Window, anchor_unit: Unit) -> void:
 	var screen_position := get_viewport().get_canvas_transform() * anchor_position
 	popup.position = Vector2(screen_position.x + 32, screen_position.y - popup_size.y / 2)
 	popup.popup()
+
+func show_tooltip_for_unit(unit: Unit) -> void:
+	if unit == null or not unit.is_inside_tree() or self._tooltip == null:
+		return
+	if get_unit_at(unit.grid_pos) != unit:
+		return
+	var health_comp := unit.get_health_component()
+	var atk_comp := unit.get_attack_component()
+	var hp_text := "N/A"
+	var atk_text := "N/A"
+	if health_comp != null:
+		hp_text = str(health_comp.get_current_health())
+	if atk_comp != null:
+		atk_text = str(atk_comp.get_damage_amount())
+	var text := "%s\nHP: %s  ATK: %s" % [unit.get_piece_name(), hp_text, atk_text]
+	var screen_position := get_viewport().get_canvas_transform() * unit.global_position
+	var offset := Vector2(25, -25)
+	self._tooltip.show_tooltip(text, screen_position + offset)
+
+func hide_tooltip() -> void:
+	if self._tooltip != null:
+		self._tooltip.hide_tooltip()
 
 func _remove_existing_action_popups() -> void:
 	var root := get_tree().get_root()

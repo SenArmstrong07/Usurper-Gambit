@@ -26,6 +26,9 @@ var is_dragging : bool = false
 var input_pickable : bool = true
 var drag_offset : Vector2 = Vector2.ZERO
 var sprite_node: Sprite2D
+var hover_area: Area2D
+var hover_collision: CollisionShape2D
+var _hovering: bool = false
 
 func _ready() -> void:
 	add_to_group("Unit")
@@ -33,6 +36,9 @@ func _ready() -> void:
 	input_pickable = true
 	if sprite_node == null:
 		create_sprite()
+	if hover_area != null:
+		hover_area.mouse_entered.connect(_on_sprite_mouse_entered)
+		hover_area.mouse_exited.connect(_on_sprite_mouse_exited)
 	init_movement_component()
 	init_attack_component()
 
@@ -62,16 +68,50 @@ func update_combat(delta):
 	pass
 
 func is_under_mouse(mouse_position: Vector2) -> bool:
-	var rect := Rect2(global_position - Vector2(8, 8), Vector2(16, 16))
+	var hitbox_size := Vector2(48, 48)
+	var hitbox_position := global_position - hitbox_size * 0.5
+	if sprite_node != null and sprite_node.texture != null:
+		var texture_size := sprite_node.texture.get_size() * sprite_node.scale
+		hitbox_size = texture_size * 0.85
+		hitbox_position = sprite_node.global_position - hitbox_size * 0.5
+	var rect := Rect2(hitbox_position, hitbox_size)
 	return rect.has_point(mouse_position)
 
+func _on_sprite_mouse_entered() -> void:
+	print("ENTERED")
+	print(board)
+	if board != null and not _hovering:
+		_hovering = true
+		board.show_tooltip_for_unit(self)
+
+func _on_sprite_mouse_exited() -> void:
+	print("EXITED")
+	if _hovering:
+		_hovering = false
+		board.hide_tooltip()
+
 func create_sprite() -> void:
+	hover_area = Area2D.new()
+	hover_area.name = "HoverArea"
+	hover_area.input_pickable = true
+	hover_area.monitoring = true
+	hover_area.monitorable = true
+
+	add_child(hover_area)
+
 	sprite_node = Sprite2D.new()
 	sprite_node.name = "PieceSprite"
 	sprite_node.centered = true
 	sprite_node.position = Vector2.ZERO
 	sprite_node.scale = Vector2(0.5, 0.5)
-	add_child(sprite_node)
+	hover_area.add_child(sprite_node)
+
+	hover_collision = CollisionShape2D.new()
+	hover_collision.name = "CollisionShape2D"
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(24, 24)
+	hover_collision.shape = shape
+	hover_area.add_child(hover_collision)
 
 func apply_sprite() -> void:
 	if sprite_node == null:
@@ -85,12 +125,16 @@ func apply_sprite() -> void:
 		sprite_node.texture = texture
 	else:
 		sprite_node.texture = load("res://assets/duo/neutral_pawn.png")
-	print(sprite_node.texture.get_size())
-	print(sprite_node)
-	print(sprite_node.get_path())
-
+	_update_hover_shape()
 func get_piece_name() -> String:
 	return piece_type.capitalize()
+
+func _update_hover_shape() -> void:
+	if hover_collision == null or sprite_node == null or sprite_node.texture == null:
+		return
+	var base_size := sprite_node.texture.get_size() * sprite_node.scale * 0.75
+	if hover_collision.shape is RectangleShape2D:
+		hover_collision.shape.size = base_size
 
 func is_enemy_in_range() -> bool:
 	return false

@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://4scrla8g83if" path="res://assets/chessBoard.png" id="2_j6rl2"]
 [ext_resource type="PackedScene" uid="uid://0g6j7bkmwpmx" path="res://scenes/UI/HighlightCells.tscn" id="4_j6rl2"]
 [ext_resource type="PackedScene" uid="uid://2amrq3hsrurq" path="res://scenes/UI/HighlightAtk.tscn" id="5_5rbsu"]
+[ext_resource type="PackedScene" uid="uid://di8ewlusof1ia" path="res://scenes/UI/Tooltip.tscn" id="6_e4jn0"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_j6rl2"]
 texture = ExtResource("2_j6rl2")
@@ -94,3 +95,7 @@ visible = false
 
 [node name="HighlightAtkCells" parent="." unique_id=335144693 instance=ExtResource("5_5rbsu")]
 visible = false
+
+[node name="TooltipLayer" type="CanvasLayer" parent="." unique_id=123456780]
+
+[node name="Tooltip" parent="TooltipLayer" unique_id=79629617 instance=ExtResource("6_e4jn0")]

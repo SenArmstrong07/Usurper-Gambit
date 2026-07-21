@@ -33,3 +33,6 @@ func revive() -> void:
 
 func is_alive() -> bool:
 	return health > 0
+
+func get_current_health() -> float:
+	return health
