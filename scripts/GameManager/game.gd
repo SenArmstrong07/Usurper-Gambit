@@ -14,6 +14,8 @@ var game_over: bool = false
 func _ready() -> void:
 	board = get_node_or_null("Board") as Board
 	SignalBus.unit_moved.connect(_on_unit_moved)
+	SignalBus.turn_wait_confirmed.connect(_on_turn_wait_confirmed)
+	SignalBus.move_history_undone.connect(_on_move_history_undone)
 	SignalBus.game_over.connect(_on_game_over)
 	add_ui()
 	if board != null:
@@ -39,9 +41,20 @@ func check_for_win_condition() -> void:
 func _on_unit_moved(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> void:
 	if game_over:
 		return
+	update_ui()
+
+func _on_turn_wait_confirmed(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> void:
+	if game_over:
+		return
 	var notation := format_move(unit, from_cell, to_cell)
 	move_history.append(notation)
-	# Turn switching is now handled in board.check_game_state()
+	update_ui()
+
+func _on_move_history_undone() -> void:
+	if game_over:
+		return
+	if not move_history.is_empty():
+		move_history.pop_back()
 	update_ui()
 
 func _on_game_over(winner: int) -> void:

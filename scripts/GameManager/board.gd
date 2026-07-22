@@ -10,6 +10,11 @@ var game_over: bool = false
 var last_move_from: Vector2i = Vector2i.ZERO
 var last_move_to: Vector2i = Vector2i.ZERO
 var last_move_piece: Unit = null
+var last_action_piece: Unit = null
+var last_action_from: Vector2i = Vector2i.ZERO
+var last_action_to: Vector2i = Vector2i.ZERO
+var last_action_turn: int = 0
+var last_action_has_moved: bool = false
 
 @onready var units: Node2D = $Units
 @onready var chess_board: TileMapLayer = $chessBoard
@@ -25,6 +30,9 @@ var pending_attack_unit: Unit = null
 var pending_attack_targets: Array[Vector2i] = []
 var pending_battle_attacker: Unit = null
 var pending_battle_defender: Unit = null
+var pending_history_unit: Unit = null
+var pending_history_from: Vector2i = Vector2i.ZERO
+var pending_history_to: Vector2i = Vector2i.ZERO
 
 enum BoardState {
 	IDLE,
@@ -121,9 +129,10 @@ func select_unit(unit: Unit) -> void:
 		_remove_existing_action_popups()
 		# Add the popup to the viewport root so it's positioned in screen/gui coordinates
 		get_tree().get_root().add_child(popup)
-		popup.configure(can_move, true, "Move or attack?", "Move", "Attack")
+		popup.configure(can_move, true, "Move or attack?", "Move", "Attack", "Undo", can_undo_last_action())
 		popup.wait_selected.connect(_on_selection_move)
 		popup.attack_selected.connect(_on_selection_attack)
+		popup.undo_selected.connect(_on_action_undo)
 		position_action_popup(popup, unit)
 	SignalBus.unit_selected.emit(unit)
 
@@ -313,6 +322,8 @@ func move_unit(unit: Unit, destination: Vector2i) -> bool:
 		return false
 
 	var start_pos := unit.grid_pos
+	var previous_turn := current_turn
+	var previous_has_moved := unit.has_moved
 	var rook_to_move: Unit = null
 	var rook_from: Vector2i = Vector2i.ZERO
 	var rook_to: Vector2i = Vector2i.ZERO
@@ -350,6 +361,15 @@ func move_unit(unit: Unit, destination: Vector2i) -> bool:
 			last_move_from = start_pos
 			last_move_to = destination
 			last_move_piece = unit
+			if rook_to_move == null:
+				last_action_piece = unit
+				last_action_from = start_pos
+				last_action_to = destination
+				last_action_turn = previous_turn
+				last_action_has_moved = previous_has_moved
+				pending_history_unit = unit
+				pending_history_from = start_pos
+				pending_history_to = destination
 			SignalBus.unit_moved.emit(unit, start_pos, destination)
 			update_king_check_visuals()
 			return true
@@ -393,6 +413,15 @@ func move_unit(unit: Unit, destination: Vector2i) -> bool:
 	last_move_from = start_pos
 	last_move_to = destination
 	last_move_piece = unit
+	if rook_to_move == null:
+		last_action_piece = unit
+		last_action_from = start_pos
+		last_action_to = destination
+		last_action_turn = previous_turn
+		last_action_has_moved = previous_has_moved
+		pending_history_unit = unit
+		pending_history_from = start_pos
+		pending_history_to = destination
 
 	SignalBus.unit_moved.emit(unit, start_pos, destination)
 	update_king_check_visuals()
@@ -439,9 +468,10 @@ func request_post_move_action(unit: Unit) -> void:
 	_remove_existing_action_popups()
 	# Add the popup to the viewport root so it's positioned in screen/gui coordinates
 	get_tree().get_root().add_child(popup)
-	popup.configure(true, can_attack, "Wait or attack?", "Wait", "Attack")
+	popup.configure(true, can_attack, "Wait or attack?", "Wait", "Attack", "Undo", can_undo_last_action())
 	popup.wait_selected.connect(_on_action_wait)
 	popup.attack_selected.connect(_on_action_attack)
+	popup.undo_selected.connect(_on_action_undo)
 	position_action_popup(popup, unit)
 
 func position_action_popup(popup: Window, anchor_unit: Unit) -> void:
@@ -453,6 +483,39 @@ func position_action_popup(popup: Window, anchor_unit: Unit) -> void:
 	var screen_position := get_viewport().get_canvas_transform() * anchor_position
 	popup.position = Vector2(screen_position.x + 32, screen_position.y - popup_size.y / 2)
 	popup.popup()
+
+func can_undo_last_action() -> bool:
+	return last_action_piece != null and last_action_piece.is_inside_tree() and last_action_from != last_action_to and last_action_piece.grid_pos == last_action_to and last_action_piece.team == current_turn
+
+func undo_last_action() -> void:
+	if not can_undo_last_action():
+		return
+	var piece := last_action_piece
+	if piece == null or piece.grid_pos != last_action_to:
+		return
+	occupied_cells.erase(piece.grid_pos)
+	occupied_cells[last_action_from] = piece
+	piece.grid_pos = last_action_from
+	piece.position = chess_board.map_to_local(last_action_from)
+	piece.has_moved = last_action_has_moved
+	current_turn = last_action_turn
+	last_move_from = Vector2i.ZERO
+	last_move_to = Vector2i.ZERO
+	last_move_piece = null
+	last_action_piece = null
+	last_action_from = Vector2i.ZERO
+	last_action_to = Vector2i.ZERO
+	last_action_turn = 0
+	last_action_has_moved = false
+	pending_history_unit = null
+	pending_history_from = Vector2i.ZERO
+	pending_history_to = Vector2i.ZERO
+	post_move_unit = null
+	pending_attack_unit = null
+	pending_attack_targets.clear()
+	selected_unit = null
+	clear_highlights()
+	board_state = BoardState.IDLE
 
 func show_tooltip_for_unit(unit: Unit) -> void:
 	if unit == null or not unit.is_inside_tree() or self._tooltip == null:
@@ -556,8 +619,16 @@ func get_pawn_forward_moves(unit: Unit) -> Array[Vector2i]:
 	return moves
 
 func _on_action_wait() -> void:
+	if pending_history_unit != null and pending_history_from != pending_history_to:
+		SignalBus.turn_wait_confirmed.emit(pending_history_unit, pending_history_from, pending_history_to)
+	pending_history_unit = null
+	pending_history_from = Vector2i.ZERO
+	pending_history_to = Vector2i.ZERO
 	board_state = BoardState.IDLE
 	check_game_state()
+
+func _on_action_undo() -> void:
+	undo_last_action()
 
 func show_battle_overlay(attacker: Unit, defender: Unit) -> void:
 	if attacker == null or defender == null:
@@ -573,9 +644,24 @@ func show_battle_overlay(attacker: Unit, defender: Unit) -> void:
 	battle_scene.battle_resolved.connect(_on_battle_resolved)
 	add_child(battle_scene)
 
+	if post_move_unit == null:
+		pending_history_unit = attacker
+		pending_history_from = attacker.grid_pos
+		pending_history_to = defender.grid_pos
+
 func _on_battle_resolved(result: String) -> void:
+	if pending_battle_attacker != null and pending_battle_attacker.team == current_turn:
+		if pending_history_unit == null:
+			pending_history_unit = pending_battle_attacker
+			pending_history_from = pending_battle_attacker.grid_pos
+			pending_history_to = pending_battle_defender.grid_pos
+		SignalBus.turn_wait_confirmed.emit(pending_history_unit, pending_history_from, pending_history_to)
+		pending_history_unit = null
+		pending_history_from = Vector2i.ZERO
+		pending_history_to = Vector2i.ZERO
 	pending_battle_attacker = null
 	pending_battle_defender = null
+	post_move_unit = null
 	board_state = BoardState.IDLE
 	check_game_state()
 

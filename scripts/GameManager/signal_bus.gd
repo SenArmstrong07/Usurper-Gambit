@@ -16,6 +16,8 @@ signal game_over(winner)
 
 signal unit_placed(unit)
 signal unit_moved(unit, from_cell, to_cell)
+signal turn_wait_confirmed(unit, from_cell, to_cell)
+signal move_history_undone()
 signal unit_removed(unit)
 signal unit_combined(unit)
 signal unit_selected(unit)
