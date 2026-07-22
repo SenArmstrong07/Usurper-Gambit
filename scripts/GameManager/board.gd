@@ -30,9 +30,7 @@ var pending_attack_unit: Unit = null
 var pending_attack_targets: Array[Vector2i] = []
 var pending_battle_attacker: Unit = null
 var pending_battle_defender: Unit = null
-var pending_history_unit: Unit = null
-var pending_history_from: Vector2i = Vector2i.ZERO
-var pending_history_to: Vector2i = Vector2i.ZERO
+var pending_history_actions: Array = []
 
 enum BoardState {
 	IDLE,
@@ -367,9 +365,7 @@ func move_unit(unit: Unit, destination: Vector2i) -> bool:
 				last_action_to = destination
 				last_action_turn = previous_turn
 				last_action_has_moved = previous_has_moved
-				pending_history_unit = unit
-				pending_history_from = start_pos
-				pending_history_to = destination
+				pending_history_actions.append({"unit": unit, "from": start_pos, "to": destination, "type": "move"})
 			SignalBus.unit_moved.emit(unit, start_pos, destination)
 			update_king_check_visuals()
 			return true
@@ -419,9 +415,7 @@ func move_unit(unit: Unit, destination: Vector2i) -> bool:
 		last_action_to = destination
 		last_action_turn = previous_turn
 		last_action_has_moved = previous_has_moved
-		pending_history_unit = unit
-		pending_history_from = start_pos
-		pending_history_to = destination
+		pending_history_actions.append({"unit": unit, "from": start_pos, "to": destination, "type": "move"})
 
 	SignalBus.unit_moved.emit(unit, start_pos, destination)
 	update_king_check_visuals()
@@ -493,12 +487,19 @@ func undo_last_action() -> void:
 	var piece := last_action_piece
 	if piece == null or piece.grid_pos != last_action_to:
 		return
+	# If the most recent action is still pending for this turn, drop it from the pending list
+	var was_pending := false
+	if pending_history_actions.size() > 0:
+		var last_pending = pending_history_actions.back()
+		if last_pending.has("unit") and last_pending["unit"] == piece and last_pending["to"] == last_action_to:
+			pending_history_actions.pop_back()
+			was_pending = true
+	# Revert the piece position
 	occupied_cells.erase(piece.grid_pos)
 	occupied_cells[last_action_from] = piece
 	piece.grid_pos = last_action_from
 	piece.position = chess_board.map_to_local(last_action_from)
 	piece.has_moved = last_action_has_moved
-	current_turn = last_action_turn
 	last_move_from = Vector2i.ZERO
 	last_move_to = Vector2i.ZERO
 	last_move_piece = null
@@ -507,9 +508,9 @@ func undo_last_action() -> void:
 	last_action_to = Vector2i.ZERO
 	last_action_turn = 0
 	last_action_has_moved = false
-	pending_history_unit = null
-	pending_history_from = Vector2i.ZERO
-	pending_history_to = Vector2i.ZERO
+	if not was_pending:
+		# If it was already recorded, notify the history UI to remove the last recorded entry
+		SignalBus.move_history_undone.emit()
 	post_move_unit = null
 	pending_attack_unit = null
 	pending_attack_targets.clear()
@@ -619,11 +620,11 @@ func get_pawn_forward_moves(unit: Unit) -> Array[Vector2i]:
 	return moves
 
 func _on_action_wait() -> void:
-	if pending_history_unit != null and pending_history_from != pending_history_to:
-		SignalBus.turn_wait_confirmed.emit(pending_history_unit, pending_history_from, pending_history_to)
-	pending_history_unit = null
-	pending_history_from = Vector2i.ZERO
-	pending_history_to = Vector2i.ZERO
+	# Emit each pending per-turn action into the history when the player confirms their turn
+	for action in pending_history_actions:
+		if action.has("unit"):
+			SignalBus.turn_wait_confirmed.emit(action["unit"], action["from"], action["to"])
+	pending_history_actions.clear()
 	board_state = BoardState.IDLE
 	check_game_state()
 
@@ -644,21 +645,19 @@ func show_battle_overlay(attacker: Unit, defender: Unit) -> void:
 	battle_scene.battle_resolved.connect(_on_battle_resolved)
 	add_child(battle_scene)
 
-	if post_move_unit == null:
-		pending_history_unit = attacker
-		pending_history_from = attacker.grid_pos
-		pending_history_to = defender.grid_pos
+	# Record the attack as a pending per-turn action. It will be emitted when the player confirms (Wait)
+	pending_history_actions.append({"unit": attacker, "from": attacker.grid_pos, "to": defender.grid_pos, "type": "attack"})
 
 func _on_battle_resolved(result: String) -> void:
+	# When a battle finishes and the attacker is the current player, ensure any pending actions
+	# (including this attack) are recorded — if this ends the turn without an explicit Wait.
 	if pending_battle_attacker != null and pending_battle_attacker.team == current_turn:
-		if pending_history_unit == null:
-			pending_history_unit = pending_battle_attacker
-			pending_history_from = pending_battle_attacker.grid_pos
-			pending_history_to = pending_battle_defender.grid_pos
-		SignalBus.turn_wait_confirmed.emit(pending_history_unit, pending_history_from, pending_history_to)
-		pending_history_unit = null
-		pending_history_from = Vector2i.ZERO
-		pending_history_to = Vector2i.ZERO
+		# Ensure the attack action is present (it should already have been appended in show_battle_overlay)
+		# Emit all pending actions as the turn is effectively ending
+		for action in pending_history_actions:
+			if action.has("unit"):
+				SignalBus.turn_wait_confirmed.emit(action["unit"], action["from"], action["to"])
+		pending_history_actions.clear()
 	pending_battle_attacker = null
 	pending_battle_defender = null
 	post_move_unit = null
