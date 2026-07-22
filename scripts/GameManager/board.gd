@@ -20,6 +20,11 @@ var last_action_has_moved: bool = false
 @onready var chess_board: TileMapLayer = $chessBoard
 @onready var highlight_markers: Node2D = $HighlightMarkers
 @onready var _tooltip: TooltipUI = $TooltipLayer/Tooltip
+var throne_manager: ThroneManager = null
+var players: Array[Player] = []
+var assignment_overlay_layer: CanvasLayer = null
+var assignment_overlay_rect: ColorRect = null
+var hovered_assignment_unit: Unit = null
 const HighlightScene = preload("res://scenes/UI/HighlightCells.tscn")
 const HighlightAtkScene = preload("res://scenes/UI/HighlightAtk.tscn")
 const ActionPopupScene = preload("res://scenes/UI/ActionPopup.tscn")
@@ -31,6 +36,7 @@ var pending_attack_targets: Array[Vector2i] = []
 var pending_battle_attacker: Unit = null
 var pending_battle_defender: Unit = null
 var pending_history_actions: Array = []
+var royal_assignment_active: bool = false
 
 enum BoardState {
 	IDLE,
@@ -38,7 +44,8 @@ enum BoardState {
 	MOVING,
 	COMBAT,
 	AWAITING_ACTION,
-	AWAITING_ATTACK_TARGET
+	AWAITING_ATTACK_TARGET,
+	AWAITING_ROYAL_ASSIGNMENT
 }
 
 var board_state = BoardState.IDLE
@@ -46,6 +53,10 @@ var board_state = BoardState.IDLE
 func _ready() -> void:
 	add_to_group("Board")
 	highlight_markers.visible = false
+	throne_manager = ThroneManager.new()
+	add_child(throne_manager)
+	players = [Player.new(0), Player.new(1)]
+	register_initial_thrones()
 	print(chess_board.get_used_rect())
 	print("Tile size:", chess_board.tile_set.tile_size)
 	print("map_to_local(0,0):", chess_board.map_to_local(Vector2i(0,0)))
@@ -75,6 +86,12 @@ func _input(event: InputEvent) -> void:
 		print("Selected Cell: ", clicked_cell)
 
 func handle_click(cell: Vector2i) -> void:
+	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
+		var unit := get_unit_at(cell)
+		if unit != null and unit.team == current_turn:
+			assign_monarch_for_current_player(unit)
+		return
+
 	if board_state == BoardState.AWAITING_ATTACK_TARGET:
 		if pending_attack_unit != null and pending_attack_targets.has(cell):
 			var target := get_unit_at(cell)
@@ -110,6 +127,9 @@ func handle_click(cell: Vector2i) -> void:
 			deselect()
 
 func select_unit(unit: Unit) -> void:
+	# Do not allow normal selection during the royal assignment phase
+	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
+		return
 	if unit.team != current_turn:
 		return
 	selected_unit = unit
@@ -145,7 +165,7 @@ func clear_highlights() -> void:
 	highlight_markers.visible = false
 
 func _on_unit_dropped(unit: Unit, cell: Vector2i) -> void:
-	if game_over:
+	if game_over or board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
 		unit.position = chess_board.map_to_local(unit.grid_pos)
 		deselect()
 		return
@@ -202,7 +222,14 @@ func setup_initial_pieces() -> void:
 	for index in range(BOARD_SIZE):
 		spawn_piece(white_back_rank[index], 0, Vector2i(index, 7))
 		spawn_piece(black_back_rank[index], 1, Vector2i(index, 0))
+	begin_royal_assignment()
 	update_king_check_visuals()
+
+func register_initial_thrones() -> void:
+	if throne_manager == null:
+		return
+	throne_manager.register_throne(0, Vector2i(4, 7))
+	throne_manager.register_throne(1, Vector2i(4, 0))
 
 func clear_board() -> void:
 	var children := units.get_children()
@@ -214,6 +241,9 @@ func clear_board() -> void:
 	occupied_cells.clear()
 	selected_unit = null
 	dragging_unit = null
+	for player in players:
+		if player != null:
+			player.clear_royal_unit()
 	clear_highlights()
 
 func spawn_piece(piece_type: String, team: int, grid_pos: Vector2i) -> Unit:
@@ -424,9 +454,17 @@ func move_unit(unit: Unit, destination: Vector2i) -> bool:
 func remove_unit(unit: Unit) -> void:
 	if unit == null:
 		return
-	occupied_cells.erase(unit.grid_pos)
+	if unit.grid_pos != Vector2i.ZERO and occupied_cells.has(unit.grid_pos):
+		occupied_cells.erase(unit.grid_pos)
 	if unit.is_inside_tree():
 		units.remove_child(unit)
+	if unit.is_royal:
+		var player := get_player(unit.team)
+		if player != null:
+			player.mark_royal_defeated()
+		unit.remove_royalty()
+		SignalBus.royal_defeated.emit(unit)
+	check_victory_conditions()
 	unit.queue_free()
 
 func get_unit_at(cell: Vector2i) -> Unit:
@@ -627,6 +665,7 @@ func _on_action_wait() -> void:
 	pending_history_actions.clear()
 	board_state = BoardState.IDLE
 	check_game_state()
+	check_victory_conditions()
 
 func _on_action_undo() -> void:
 	undo_last_action()
@@ -649,6 +688,7 @@ func show_battle_overlay(attacker: Unit, defender: Unit) -> void:
 	pending_history_actions.append({"unit": attacker, "from": attacker.grid_pos, "to": defender.grid_pos, "type": "attack"})
 
 func _on_battle_resolved(result: String) -> void:
+	handle_combat_result(pending_battle_attacker, pending_battle_defender, result)
 	# When a battle finishes and the attacker is the current player, ensure any pending actions
 	# (including this attack) are recorded — if this ends the turn without an explicit Wait.
 	if pending_battle_attacker != null and pending_battle_attacker.team == current_turn:
@@ -663,6 +703,7 @@ func _on_battle_resolved(result: String) -> void:
 	post_move_unit = null
 	board_state = BoardState.IDLE
 	check_game_state()
+	check_victory_conditions()
 
 func _on_action_attack() -> void:
 	if post_move_unit == null:
@@ -757,6 +798,170 @@ func would_move_leave_king_in_check(piece: Unit, destination: Vector2i) -> bool:
 	
 	return in_check
 
+func begin_royal_assignment() -> void:
+	royal_assignment_active = true
+	current_turn = 0
+	board_state = BoardState.AWAITING_ROYAL_ASSIGNMENT
+	# Restrict input so only the active player's pieces may be clicked for assignment
+	set_assignment_interaction(current_turn)
+	show_assignment_overlay()
+
+func assign_monarch_for_current_player(unit: Unit) -> void:
+	if unit == null or not royal_assignment_active:
+		return
+	if unit.team != current_turn:
+		return
+	var player := get_player(unit.team)
+	if player == null:
+		return
+	player.assign_royal_unit(unit)
+	if current_turn == 0:
+		current_turn = 1
+		# update which units are interactive for the next player
+		set_assignment_interaction(current_turn)
+	else:
+		royal_assignment_active = false
+		current_turn = 0
+		board_state = BoardState.IDLE
+		finalize_royal_assignment()
+		# restore full unit interaction now that assignment is complete
+		set_assignment_interaction(-1)
+	clear_highlights()
+
+func finalize_royal_assignment() -> void:
+	for player in players:
+		if player == null:
+			continue
+		if player.has_active_royalty():
+			continue
+		var fallback_unit: Unit = null
+		for unit in units.get_children():
+			if not (unit is Unit):
+				continue
+			if unit.team != player.team:
+				continue
+			fallback_unit = unit
+			break
+		if fallback_unit != null:
+			player.assign_royal_unit(fallback_unit)
+	# Ensure all pieces are interactable again
+	set_assignment_interaction(-1)
+	royal_assignment_active = false
+	board_state = BoardState.IDLE
+	clear_highlights()
+	hide_assignment_overlay()
+	update_king_check_visuals()
+	current_turn = 0
+
+
+func show_assignment_overlay() -> void:
+	if assignment_overlay_layer != null and is_instance_valid(assignment_overlay_layer):
+		return
+	assignment_overlay_layer = CanvasLayer.new()
+	assignment_overlay_layer.layer = 100
+	get_tree().get_root().call_deferred("add_child", assignment_overlay_layer)
+	assignment_overlay_rect = ColorRect.new()
+	assignment_overlay_rect.color = Color(0, 0, 0, 0.45)
+	assignment_overlay_rect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	assignment_overlay_rect.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	assignment_overlay_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Make it full-screen
+	assignment_overlay_rect.size = get_viewport().get_visible_rect().size
+	assignment_overlay_layer.add_child(assignment_overlay_rect)
+
+func hide_assignment_overlay() -> void:
+	if assignment_overlay_layer != null and is_instance_valid(assignment_overlay_layer):
+		assignment_overlay_layer.queue_free()
+		assignment_overlay_layer = null
+		assignment_overlay_rect = null
+
+func show_assignment_highlight(unit: Unit) -> void:
+	if unit == null:
+		return
+	# Clear previous
+	clear_assignment_highlight()
+	hovered_assignment_unit = unit
+	# Apply a bright modulate and slight scale to simulate a shine
+	if unit.sprite_node != null:
+		unit._original_modulate = unit.sprite_node.modulate
+		unit.sprite_node.modulate = Color(1.25, 1.25, 0.9, 1)
+		unit.sprite_node.scale = unit.sprite_node.scale * 1.08
+
+func clear_assignment_highlight() -> void:
+	if hovered_assignment_unit == null:
+		return
+	var u := hovered_assignment_unit
+	hovered_assignment_unit = null
+	if u != null and u.sprite_node != null:
+		# restore
+		u.sprite_node.modulate = u._original_modulate
+		u.sprite_node.scale = u._original_scale
+	
+
+func set_assignment_interaction(team: int) -> void:
+	# team == -1 -> enable all units; otherwise only enable units for the given team
+	for u in units.get_children():
+		if not (u is Unit):
+			continue
+		var unit := u as Unit
+		var enable := false
+		if team == -1:
+			enable = true
+		else:
+			enable = unit.team == team
+		# Allow hovering for all units during assignment, but only allow clicking/selection for the active team
+		unit.input_pickable = enable
+		if unit.hover_area != null:
+			unit.hover_area.input_pickable = true
+
+func assign_royal_units() -> void:
+	finalize_royal_assignment()
+
+func get_player(team: int) -> Player:
+	if team < 0 or team >= players.size():
+		return null
+	return players[team]
+
+func can_claim_throne(team: int) -> bool:
+	if throne_manager == null:
+		return false
+	var enemy_team := 1 - team
+	var throne_cell := throne_manager.get_throne(enemy_team)
+	if throne_cell == Vector2i(-1, -1):
+		return false
+	var occupying_unit := get_unit_at(throne_cell)
+	if occupying_unit == null or occupying_unit.team != team:
+		return false
+	var enemy_player := get_player(enemy_team)
+	if enemy_player == null:
+		return false
+	return enemy_player.royal_defeated and occupying_unit != null and occupying_unit.team == team
+
+func check_victory_conditions() -> void:
+	if game_over:
+		return
+	for team in [0, 1]:
+		if can_claim_throne(team):
+			end_game(team)
+			return
+
+func handle_combat_result(attacker: Unit, defender: Unit, result: String) -> void:
+	if attacker == null or defender == null:
+		return
+	if not defender.is_alive() and attacker != null:
+		SignalBus.piece_defeated.emit(defender, attacker)
+	elif not attacker.is_alive() and defender != null:
+		SignalBus.piece_defeated.emit(attacker, defender)
+
+func end_game(winning_team: int) -> void:
+	if game_over:
+		return
+	game_over = true
+	board_state = BoardState.COMBAT
+	deselect()
+	clear_highlights()
+	SignalBus.game_over.emit(winning_team)
+
 # Check if the king is in checkmate
 func is_king_in_checkmate(team: int) -> bool:
 	if not is_king_in_check(team):
@@ -786,35 +991,10 @@ func is_team_in_stalemate(team: int) -> bool:
 	
 	return true
 
-# Check game state after a move (check, checkmate, or stalemate)
+# Check game state after a move or combat action.
 func check_game_state() -> void:
+	if game_over:
+		return
 	var opponent_team := 1 - current_turn
-	
-	if is_king_in_checkmate(opponent_team):
-		game_over = true
-		board_state = BoardState.COMBAT
-		deselect()
-		clear_highlights()
-		print("Checkmate! Team %d wins!" % current_turn)
-		update_king_check_visuals()
-		SignalBus.game_over.emit(current_turn)
-		return
-	
-	if is_team_in_stalemate(opponent_team):
-		game_over = true
-		board_state = BoardState.COMBAT
-		deselect()
-		clear_highlights()
-		print("Stalemate")
-		update_king_check_visuals()
-		SignalBus.game_over.emit(-1)
-		return
-	
-	if is_king_in_check(opponent_team):
-		print("Check!")
-	
 	update_king_check_visuals()
-	current_turn = opponent_team
-	
-	# Switch turns
 	current_turn = opponent_team

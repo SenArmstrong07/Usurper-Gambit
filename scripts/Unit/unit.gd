@@ -11,6 +11,7 @@ var grid_pos: Vector2i = Vector2i.ZERO
 var current_target: Unit
 var board: Board
 var has_moved: bool = false
+var is_royal: bool = false
 
 # MOVEMENT STUFF
 var movement_component: MovementComponent = null
@@ -29,6 +30,8 @@ var sprite_node: Sprite2D
 var hover_area: Area2D
 var hover_collision: CollisionShape2D
 var _hovering: bool = false
+var _original_modulate: Color = Color(1,1,1,1)
+var _original_scale: Vector2 = Vector2(0.5, 0.5)
 
 func _ready() -> void:
 	add_to_group("Unit")
@@ -62,6 +65,11 @@ func _input(event: InputEvent) -> void:
 		var mouse_position := get_global_mouse_position()
 		if is_under_mouse(mouse_position):
 			if board != null:
+				# During the royal assignment phase, clicks should select the monarch
+				# rather than enter normal piece selection/movement flow.
+				if board.royal_assignment_active:
+					board.handle_click(grid_pos)
+					return
 				board.select_unit(self)
 
 func update_combat(delta):
@@ -82,13 +90,19 @@ func _on_sprite_mouse_entered() -> void:
 	print(board)
 	if board != null and not _hovering:
 		_hovering = true
-		board.show_tooltip_for_unit(self)
+		if board != null and board.royal_assignment_active:
+			board.show_assignment_highlight(self)
+		else:
+			board.show_tooltip_for_unit(self)
 
 func _on_sprite_mouse_exited() -> void:
 	print("EXITED")
 	if _hovering:
 		_hovering = false
-		board.hide_tooltip()
+		if board != null and board.royal_assignment_active:
+			board.clear_assignment_highlight()
+		else:
+			board.hide_tooltip()
 
 func create_sprite() -> void:
 	hover_area = Area2D.new()
@@ -105,6 +119,9 @@ func create_sprite() -> void:
 	sprite_node.position = Vector2.ZERO
 	sprite_node.scale = Vector2(0.5, 0.5)
 	hover_area.add_child(sprite_node)
+	# store original modulate and scale for hover effects
+	_original_modulate = sprite_node.modulate
+	_original_scale = sprite_node.scale
 
 	hover_collision = CollisionShape2D.new()
 	hover_collision.name = "CollisionShape2D"
@@ -249,6 +266,12 @@ func update_check_visual(is_in_check: bool) -> void:
 
 func capture():
 	print("Cell Captured")
+
+func assign_royalty() -> void:
+	is_royal = true
+
+func remove_royalty() -> void:
+	is_royal = false
 
 func get_attack_component() -> AtkComponent:
 	var attack_node := get_node_or_null("AtkComponent") as AtkComponent

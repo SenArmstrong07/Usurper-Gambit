@@ -7,6 +7,7 @@ var current_player: int = 0
 var move_history: Array[String] = []
 var turn_label: Label
 var moves_label: Label
+var status_label: Label
 var game_over_label: Label
 var reset_button: Button
 var game_over: bool = false
@@ -17,6 +18,8 @@ func _ready() -> void:
 	SignalBus.turn_wait_confirmed.connect(_on_turn_wait_confirmed)
 	SignalBus.move_history_undone.connect(_on_move_history_undone)
 	SignalBus.game_over.connect(_on_game_over)
+	SignalBus.royal_defeated.connect(_on_royal_defeated)
+	SignalBus.piece_defeated.connect(_on_piece_defeated)
 	add_ui()
 	if board != null:
 		start_battle()
@@ -63,9 +66,31 @@ func _on_game_over(winner: int) -> void:
 		game_over_label.text = "Draw by stalemate!"
 	else:
 		var winner_name := "White" if winner == 0 else "Black"
-		game_over_label.text = "%s wins by checkmate!" % winner_name
+		game_over_label.text = "%s wins by usurpation!" % winner_name
 	game_over_label.visible = true
 	reset_button.visible = true
+	update_ui()
+
+func _on_royal_defeated(unit: Unit) -> void:
+	if unit == null:
+		return
+	var team_name := "White" if unit.team == 0 else "Black"
+	var message := "%s's monarch has fallen!" % team_name
+	if status_label != null:
+		status_label.text = message
+	if game_over_label != null:
+		game_over_label.text = message
+		game_over_label.visible = true
+	update_ui()
+
+func _on_piece_defeated(victim: Unit, killer: Unit) -> void:
+	if victim == null or killer == null:
+		return
+	var victim_team_name := "White" if victim.team == 0 else "Black"
+	var killer_team_name := "White" if killer.team == 0 else "Black"
+	var message := "%s's %s killed %s's %s." % [killer_team_name, killer.get_piece_name(), victim_team_name, victim.get_piece_name()]
+	if status_label != null:
+		status_label.text = message
 	update_ui()
 
 func _on_reset_pressed() -> void:
@@ -111,9 +136,16 @@ func add_ui() -> void:
 	moves_label.size = Vector2(320, 220)
 	canvas.add_child(moves_label)
 
+	status_label = Label.new()
+	status_label.name = "StatusLabel"
+	status_label.position = Vector2(20, 300)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status_label.size = Vector2(320, 120)
+	canvas.add_child(status_label)
+
 	game_over_label = Label.new()
 	game_over_label.name = "GameOverLabel"
-	game_over_label.position = Vector2(20, 300)
+	game_over_label.position = Vector2(20, 430)
 	game_over_label.scale = Vector2(1.5, 1.5)
 	game_over_label.visible = false
 	game_over_label.modulate = Color.RED
@@ -122,7 +154,7 @@ func add_ui() -> void:
 	reset_button = Button.new()
 	reset_button.name = "ResetButton"
 	reset_button.text = "Replay"
-	reset_button.position = Vector2(20, 360)
+	reset_button.position = Vector2(20, 500)
 	reset_button.visible = false
 	reset_button.pressed.connect(_on_reset_pressed)
 	canvas.add_child(reset_button)
@@ -132,6 +164,12 @@ func update_ui() -> void:
 	current_player = board.current_turn
 	var player_name := "White" if current_player == 0 else "Black"
 	turn_label.text = "Turn: %s" % player_name
+	if board != null and board.royal_assignment_active:
+		status_label.text = "Choose your monarch for %s." % ("White" if current_player == 0 else "Black")
+	elif board != null and board.game_over:
+		status_label.text = "The throne has been claimed."
+	else:
+		status_label.text = "Movement and combat resolve the usurpation contest."
 	var history_text := "Moves:\n"
 	for index in range(move_history.size()):
 		history_text += "%d. %s\n" % [index + 1, move_history[index]]

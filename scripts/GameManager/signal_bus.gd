@@ -24,6 +24,8 @@ signal unit_selected(unit)
 signal unit_drag_started(unit)
 signal unit_dragged(unit)
 signal unit_dropped(unit: Unit, cell: Vector2i)
+signal royal_defeated(unit)
+signal piece_defeated(victim, killer)
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	pass
