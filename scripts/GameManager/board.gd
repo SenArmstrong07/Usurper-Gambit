@@ -86,11 +86,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	#queue_redraw()
 	pass
-
-# func _draw():
-# 	draw_rect(Rect2(Vector2.ZERO, Vector2(128,128)), Color.RED, false)
 
 #Mouse Handlers
 func _input(event: InputEvent) -> void:

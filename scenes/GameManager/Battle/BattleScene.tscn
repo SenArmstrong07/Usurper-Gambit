@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://c1cjq02ykvpky" path="res://scripts/GameManager/Battle/battle_scene.gd" id="1_2kq6k"]
 
 [node name="BattleScene" type="CanvasLayer" unique_id=1313553445]
+layer = 100
 script = ExtResource("1_2kq6k")
 
 [node name="Panel" type="Panel" parent="." unique_id=1084921081]

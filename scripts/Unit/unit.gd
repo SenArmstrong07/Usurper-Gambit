@@ -31,7 +31,7 @@ var hover_area: Area2D
 var hover_collision: CollisionShape2D
 var _hovering: bool = false
 var _original_modulate: Color = Color(1,1,1,1)
-var _original_scale: Vector2 = Vector2(0.5, 0.5)
+var _original_scale: Vector2 = Vector2(0.8, 0.8)
 
 func _ready() -> void:
 	add_to_group("Unit")
@@ -48,6 +48,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if is_dragging:
 		global_position = get_global_mouse_position() + drag_offset
+		return
+	if board != null:
+		_update_hover_state_from_mouse()
 
 func _input(event: InputEvent) -> void:
 	if event is not InputEventMouseButton:
@@ -111,24 +114,38 @@ func is_under_mouse(mouse_position: Vector2) -> bool:
 	var rect := Rect2(hitbox_position, hitbox_size)
 	return rect.has_point(mouse_position)
 
-func _on_sprite_mouse_entered() -> void:
-	print("ENTERED")
-	print(board)
-	if board != null and not _hovering:
-		_hovering = true
-		if board.has_method("is_royal_assignment_active") and board.is_royal_assignment_active():
+func _update_hover_state_from_mouse() -> void:
+	if board == null:
+		return
+	var mouse_position := get_global_mouse_position()
+	var is_mouse_over := is_under_mouse(mouse_position)
+	if is_mouse_over and not _hovering:
+		_set_hover_state(true)
+	elif not is_mouse_over and _hovering:
+		_set_hover_state(false)
+
+func _set_hover_state(is_hovered: bool) -> void:
+	if _hovering == is_hovered:
+		return
+	_hovering = is_hovered
+	if board == null:
+		return
+	if board.has_method("is_royal_assignment_active") and board.is_royal_assignment_active():
+		if is_hovered:
 			board.show_assignment_highlight(self)
 		else:
-			board.show_tooltip_for_unit(self)
-
-func _on_sprite_mouse_exited() -> void:
-	print("EXITED")
-	if _hovering:
-		_hovering = false
-		if board.has_method("is_royal_assignment_active") and board.is_royal_assignment_active():
 			board.clear_assignment_highlight()
+	else:
+		if is_hovered:
+			board.show_tooltip_for_unit(self)
 		else:
 			board.hide_tooltip()
+
+func _on_sprite_mouse_entered() -> void:
+	_set_hover_state(true)
+
+func _on_sprite_mouse_exited() -> void:
+	_set_hover_state(false)
 
 func create_sprite() -> void:
 	hover_area = Area2D.new()
@@ -143,7 +160,7 @@ func create_sprite() -> void:
 	sprite_node.name = "PieceSprite"
 	sprite_node.centered = true
 	sprite_node.position = Vector2.ZERO
-	sprite_node.scale = Vector2(0.5, 0.5)
+	sprite_node.scale = Vector2(0.8, 0.8)
 	hover_area.add_child(sprite_node)
 	# store original modulate and scale for hover effects
 	_original_modulate = sprite_node.modulate
