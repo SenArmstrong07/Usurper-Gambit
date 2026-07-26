@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://ui86flwprguw"]
+
+[ext_resource type="Script" uid="uid://bih0fk2b0oavb" path="res://scripts/Card/hand_ui.gd" id="1_u4y61"]
+
+[node name="HandUi" type="Control" unique_id=587290287]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_u4y61")
+
+[node name="CardContainer" type="Control" parent="." unique_id=1838964014]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0

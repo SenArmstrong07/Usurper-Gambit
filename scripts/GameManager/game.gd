@@ -5,6 +5,8 @@ const MoveHistoryPanelContainer = preload("res://scripts/UI/move_history_panel_c
 
 signal wait_selected
 
+@onready var hand: HandUI = $UI/HandUi
+
 var selected_piece: Vector2
 var board: Board
 var current_player: int = 0
@@ -182,3 +184,11 @@ func update_ui() -> void:
 		status_label.text = "Choose your monarch for %s." % ("White" if current_player == 0 else "Black")
 	elif board != null and board.game_over:
 		status_label.text = "The throne has been claimed."
+
+
+func _on_draw_button_pressed() -> void:
+	hand.draw_card()
+
+
+func _on_discard_pressed() -> void:
+	hand.discard_card()

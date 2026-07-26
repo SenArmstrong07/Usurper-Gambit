@@ -4,6 +4,16 @@
 [ext_resource type="Script" uid="uid://cmse8kfulsc6u" path="res://scripts/GameManager/game.gd" id="1_rtr7y"]
 [ext_resource type="Script" uid="uid://1f36xddp8he8" path="res://scripts/UI/event_banner_manager.gd" id="2_evtmgr"]
 [ext_resource type="Script" uid="uid://k21bnuqq341y" path="res://scripts/UI/move_history_panel_container.gd" id="3_mvphist"]
+[ext_resource type="PackedScene" uid="uid://ui86flwprguw" path="res://scenes/Card/HandUI.tscn" id="5_jqg0t"]
+
+[sub_resource type="Curve" id="Curve_jqg0t"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(0.98863643, 0.026785731), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Curve" id="Curve_t2bjm"]
+_limits = [-1.0, 1.0, 0.0, 1.0]
+_data = [Vector2(0, -1), 0.0, 6.0, 0, 0, Vector2(0.5, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 6.0, 0.0, 0, 0]
+point_count = 3
 
 [node name="Game" type="Node2D" unique_id=1800893229]
 script = ExtResource("1_rtr7y")
@@ -55,15 +65,40 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="SideButton" type="Button" parent="UI/Game_Panel" unique_id=1087994321]
-layout_mode = 2
-anchors_preset = 0
+layout_mode = 0
 anchor_left = 1.0
-anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 0.0
 offset_left = -20.0
 offset_top = 8.0
 offset_right = 4.0
 offset_bottom = 40.0
 theme_override_font_sizes/font_size = 8
 text = "Minimize"
+
+[node name="DrawButton" type="Button" parent="UI/Game_Panel" unique_id=1602665212]
+layout_mode = 0
+offset_left = 27.0
+offset_top = 368.0
+offset_right = 76.0
+offset_bottom = 399.0
+text = "Draw"
+
+[node name="Discard" type="Button" parent="UI/Game_Panel" unique_id=122820005]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 416.0
+offset_right = 93.0
+offset_bottom = 447.0
+text = "Discard
+"
+
+[node name="HandUi" parent="UI" unique_id=587290287 instance=ExtResource("5_jqg0t")]
+offset_left = 246.0
+offset_top = 611.0
+offset_right = -317.0
+offset_bottom = -2.0
+hand_curve = SubResource("Curve_jqg0t")
+rotation_curve = SubResource("Curve_t2bjm")
+
+[connection signal="pressed" from="UI/Game_Panel/DrawButton" to="." method="_on_draw_button_pressed"]
+[connection signal="pressed" from="UI/Game_Panel/Discard" to="." method="_on_discard_pressed"]

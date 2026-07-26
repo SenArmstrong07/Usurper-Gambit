@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="Card" format=3 uid="uid://bmnga5yecarsm"]
+
+[ext_resource type="Texture2D" uid="uid://yoc0mlx3byn5" path="res://assets/cards/promotion_frame.png" id="1_dlcma"]
+[ext_resource type="Texture2D" uid="uid://0wv1euaflc3r" path="res://assets/cards/promotion_banner.png" id="2_yax3h"]
+[ext_resource type="Texture2D" uid="uid://t25cpc55uvwp" path="res://assets/cards/promotion_canvas.png" id="3_guimr"]
+[ext_resource type="Texture2D" uid="uid://6yar1j4jbimg" path="res://assets/cards/card_base.png" id="4_20rqu"]
+[ext_resource type="Texture2D" uid="uid://fgqmx6adln8r" path="res://assets/cards/promotion_desc.png" id="5_4vi5o"]
+[ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/Card.gd" id="6_737u2"]
+
+[resource]
+script = ExtResource("6_737u2")
+card_name = "Sample"
+description = "Sample"
+card_base_texture = ExtResource("4_20rqu")
+canvas_texture = ExtResource("3_guimr")
+art_frame_texture = ExtResource("1_dlcma")
+banner_texture = ExtResource("2_yax3h")
+desc_texture = ExtResource("5_4vi5o")
+target_type = 1
+metadata/_custom_type_script = "uid://u1ldthxnnpm7"
