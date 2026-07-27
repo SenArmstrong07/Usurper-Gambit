@@ -95,6 +95,9 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_mouse_pos := chess_board.get_local_mouse_position()
 		var clicked_cell := chess_board.local_to_map(local_mouse_pos)
+		
+		if !is_within_bounds(clicked_cell):
+			return #ignore clicks outside the board
 		print("[Board._input] clicked cell", clicked_cell, "board_state", board_state, "selected_unit", selected_unit)
 		handle_click(clicked_cell)
 		print("[Board._input] handle_click returned")

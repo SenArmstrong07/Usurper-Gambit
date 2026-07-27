@@ -1,11 +1,13 @@
 [gd_scene format=3 uid="uid://csuevhb3vl0rj"]
 
 [ext_resource type="Script" uid="uid://o11nbioq6rgg" path="res://scripts/Card/card_ui.gd" id="1_8vxrx"]
-[ext_resource type="Resource" uid="uid://bmnga5yecarsm" path="res://scripts/Card/PromotionCard.tres" id="2_fnic8"]
+[ext_resource type="Resource" uid="uid://g5oxfys122p4" path="res://scripts/Card/PromotionCard.tres" id="2_fnic8"]
 
 [node name="CardUI" type="Control" unique_id=1387375402]
 layout_mode = 3
 anchors_preset = 0
+offset_right = 200.0
+offset_bottom = 278.0
 script = ExtResource("1_8vxrx")
 CardStats = ExtResource("2_fnic8")
 
@@ -21,6 +23,7 @@ offset_left = 7.0
 offset_top = 6.0
 offset_right = 195.0
 offset_bottom = 271.0
+pivot_offset = Vector2(100, 278)
 
 [node name="Artwork" type="TextureRect" parent="." unique_id=1088808594]
 layout_mode = 0
@@ -28,6 +31,10 @@ offset_left = 33.0
 offset_top = 27.0
 offset_right = 166.0
 offset_bottom = 93.0
+pivot_offset = Vector2(66, 278)
+
+[node name="ArtImage" type="Sprite2D" parent="Artwork" unique_id=815267486]
+position = Vector2(66, 33)
 
 [node name="Banner" type="TextureRect" parent="." unique_id=2104322727]
 layout_mode = 0
@@ -35,40 +42,62 @@ offset_left = 1.0
 offset_top = 106.0
 offset_right = 199.0
 offset_bottom = 142.0
+pivot_offset = Vector2(99, 139)
 
-[node name="DescFrame" type="TextureRect" parent="." unique_id=1460335572]
+[node name="CardName" type="Label" parent="Banner" unique_id=2018358575]
 layout_mode = 0
-offset_left = 38.0
-offset_top = 171.0
-offset_right = 163.0
-offset_bottom = 216.0
-
-[node name="CardName" type="Label" parent="." unique_id=2018358575]
-layout_mode = 0
-offset_left = 45.0
-offset_top = 113.0
-offset_right = 159.0
-offset_bottom = 141.0
+offset_left = 44.0
+offset_top = 7.0
+offset_right = 158.0
+offset_bottom = 35.0
+pivot_offset = Vector2(57, 28)
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 text = "Sample Name"
 horizontal_alignment = 1
 
-[node name="CardDesc" type="RichTextLabel" parent="." unique_id=703411096]
+[node name="DescFrame" type="TextureRect" parent="." unique_id=1460335572]
 layout_mode = 0
-offset_left = 26.0
-offset_top = 177.0
-offset_right = 177.0
-offset_bottom = 242.0
+offset_left = 16.0
+offset_top = 146.0
+offset_right = 188.0
+offset_bottom = 260.0
+pivot_offset = Vector2(86, 114)
+
+[node name="CardDesc" type="RichTextLabel" parent="DescFrame" unique_id=703411096]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 19.0
+offset_right = 161.0
+offset_bottom = 84.0
+pivot_offset = Vector2(75, 65)
 theme_override_colors/default_color = Color(0, 0, 0, 1)
 text = "Sample Desc"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="manaCost" type="Label" parent="." unique_id=1146140833]
+[node name="ManaFrame" type="TextureRect" parent="." unique_id=91202700]
 layout_mode = 0
-offset_left = 179.0
+offset_left = 181.0
 offset_top = 254.0
-offset_right = 200.0
-offset_bottom = 277.0
-theme_override_colors/font_color = Color(0, 0, 0, 1)
+offset_right = 215.0
+offset_bottom = 285.0
+pivot_offset = Vector2(17, 31)
+
+[node name="ManaIcon" type="Sprite2D" parent="ManaFrame" unique_id=1645944010]
+position = Vector2(17, 15)
+
+[node name="manaCost" type="Label" parent="ManaFrame" unique_id=1146140833]
+layout_mode = 0
+offset_left = 23.0
+offset_top = 17.0
+offset_right = 44.0
+offset_bottom = 40.0
+pivot_offset = Vector2(10.5, 23)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 text = "5"
 horizontal_alignment = 1
+vertical_alignment = 1
+
+[connection signal="gui_input" from="." to="." method="_on_gui_input"]
+[connection signal="mouse_entered" from="." to="." method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="." to="." method="_on_mouse_exited"]

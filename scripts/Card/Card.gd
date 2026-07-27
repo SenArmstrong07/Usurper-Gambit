@@ -7,8 +7,11 @@ class_name Card
 @export var card_base_texture: Texture2D
 @export var canvas_texture : Texture2D
 @export var art_frame_texture : Texture2D
+@export var art_image_sprite : Texture2D
 @export var banner_texture : Texture2D
 @export var desc_texture : Texture2D
+@export var mana_frame_texture : Texture2D
+@export var mana_icon_texture : Texture2D
 enum TargetType
 {
 NONE,
