@@ -1,7 +1,7 @@
 extends Control
 class_name HandUI
 
-var card_res := load("res://scripts/Card/PromotionCard.tres") as Card
+var card_res := load("res://scripts/Card/PromotionCard.tres") as Card #a sample card for now
 const card_scene = preload("res://scenes/Card/CardUI.tscn")
 
 var cards: Array[Card] = []

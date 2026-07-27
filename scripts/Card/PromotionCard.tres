@@ -1,13 +1,6 @@
-[gd_resource type="Resource" script_class="Card" format=3 uid="uid://g5oxfys122p4"]
+[gd_resource type="Resource" script_class="Card" format=3 uid="uid://bmnga5yecarsm"]
 
-[ext_resource type="Texture2D" uid="uid://yoc0mlx3byn5" path="res://assets/cards/promotion_frame.png" id="1_paqsr"]
-[ext_resource type="Texture2D" uid="uid://cburfmvrobeoa" path="res://icon.svg" id="2_8a7r5"]
-[ext_resource type="Texture2D" uid="uid://0wv1euaflc3r" path="res://assets/cards/promotion_banner.png" id="3_mose4"]
-[ext_resource type="Texture2D" uid="uid://t25cpc55uvwp" path="res://assets/cards/promotion_canvas.png" id="4_k86x6"]
-[ext_resource type="Texture2D" uid="uid://6yar1j4jbimg" path="res://assets/cards/card_base.png" id="5_11bfl"]
-[ext_resource type="Texture2D" uid="uid://fgqmx6adln8r" path="res://assets/cards/promotion_desc.png" id="6_slsh3"]
-[ext_resource type="Texture2D" uid="uid://boohkpai44c71" path="res://assets/cards/icon_frame.png" id="7_o55p7"]
-[ext_resource type="Texture2D" uid="uid://b4kec6q2l7w8y" path="res://assets/cards/mana_icon.png" id="8_duvj2"]
+[ext_resource type="Resource" uid="uid://bgs8r1lqo51pv" path="res://scripts/Card/Brown.tres" id="1_dv5r8"]
 [ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/Card.gd" id="9_dourk"]
 
 [resource]
@@ -15,13 +8,6 @@ script = ExtResource("9_dourk")
 card_name = "Sample"
 description = "Sample"
 mana_cost = 5
-card_base_texture = ExtResource("5_11bfl")
-canvas_texture = ExtResource("4_k86x6")
-art_frame_texture = ExtResource("1_paqsr")
-art_image_sprite = ExtResource("2_8a7r5")
-banner_texture = ExtResource("3_mose4")
-desc_texture = ExtResource("6_slsh3")
-mana_frame_texture = ExtResource("7_o55p7")
-mana_icon_texture = ExtResource("8_duvj2")
+card_theme = ExtResource("1_dv5r8")
 target_type = 1
 metadata/_custom_type_script = "uid://u1ldthxnnpm7"

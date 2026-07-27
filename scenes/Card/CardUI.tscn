@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://csuevhb3vl0rj"]
 
 [ext_resource type="Script" uid="uid://o11nbioq6rgg" path="res://scripts/Card/card_ui.gd" id="1_8vxrx"]
-[ext_resource type="Resource" uid="uid://g5oxfys122p4" path="res://scripts/Card/PromotionCard.tres" id="2_fnic8"]
 
 [node name="CardUI" type="Control" unique_id=1387375402]
 layout_mode = 3
@@ -9,7 +8,6 @@ anchors_preset = 0
 offset_right = 200.0
 offset_bottom = 278.0
 script = ExtResource("1_8vxrx")
-CardStats = ExtResource("2_fnic8")
 
 [node name="BaseFront" type="TextureRect" parent="." unique_id=2058913359]
 layout_mode = 0

@@ -2,7 +2,8 @@ extends Control
 class_name CardUI
 
 const SIZE := Vector2(200,278)
-@export var CardStats: Card
+@export var card_stats: Card
+@export var card_theme: CardTheme
 
 @onready var card_ui: CardUI = $"." #reference to the parent node
 
@@ -39,16 +40,17 @@ func _process(delta: float) -> void:
 			
 
 func setup(cardData: Card):
-	CardStats = cardData
+	card_stats = cardData
+	var theme := cardData.card_theme
 	#Order from the backmost texture to the frontmost texture
-	base_front.texture = cardData.card_base_texture
-	canvas.texture = cardData.canvas_texture
-	artwork.texture = cardData.art_frame_texture
-	art_image.texture = cardData.art_image_sprite
-	banner.texture = cardData.banner_texture
-	desc_frame.texture = cardData.desc_texture
-	mana_frame.texture = cardData.mana_frame_texture
-	mana_icon.texture = cardData.mana_icon_texture
+	base_front.texture = theme.card_base_texture
+	canvas.texture = theme.canvas_texture
+	artwork.texture = theme.art_frame_texture
+	art_image.texture = theme.art_image_sprite
+	banner.texture = theme.banner_texture
+	desc_frame.texture = theme.desc_texture
+	mana_frame.texture = theme.mana_frame_texture
+	mana_icon.texture = theme.mana_icon_texture
 	
 	art_image.z_index = 10
 	mana_icon.scale = Vector2(2,1.8)
