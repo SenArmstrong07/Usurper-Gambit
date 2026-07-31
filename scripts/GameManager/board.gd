@@ -77,6 +77,7 @@ func _ready() -> void:
 	print("TileMap scale:", chess_board.scale)
 	print("Units scale:", units.scale)
 	SignalBus.unit_dropped.connect(_on_unit_dropped)
+	SignalBus.gameplay_effect_triggered.connect(_on_gameplay_effect_triggered)
 	clear_highlights()
 	# find EventBannerManager if present
 	var banner_mgr = get_tree().get_root().get_node_or_null("Game/UI/EventBannerManager")
@@ -87,6 +88,17 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	pass
+
+func _on_gameplay_effect_triggered(effect_name: String, context: Dictionary) -> void:
+	match effect_name:
+		"promote_pawn":
+			print("Board received gameplay effect: promote this pawn.")
+		"move_unit":
+			print("Board received gameplay effect: move this unit.")
+		"spawn_trap":
+			print("Board received gameplay effect: spawn trap here.")
+		_:
+			print("Board received gameplay effect: ", effect_name)
 
 #Mouse Handlers
 func _input(event: InputEvent) -> void:

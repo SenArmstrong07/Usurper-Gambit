@@ -3,6 +3,7 @@ class_name CardUI
 
 const SIZE := Vector2(200,278)
 signal card_clicked(card: Card)
+signal card_dropped(card: Card)
 @export var card_stats: Card
 @export var card_theme: CardTheme
 
@@ -43,9 +44,6 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if is_dragging:
 		global_position = get_global_mouse_position() + dragging_offset
-		if Input.is_action_just_released("left_mouse"): #dropping the card
-			is_dragging = false
-			
 
 func setup(cardData: Card):
 	card_stats = cardData
@@ -169,14 +167,40 @@ func card_is_focused(value: bool) -> void:
 		z_index = default_z_index
 		hover_anim(1)
 	
-func _on_gui_input(event: InputEvent) -> void:
-	if is_dragging:
-		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		is_dragging = true
-		card_clicked.emit(card_stats)
-		dragging_offset = global_position - get_global_mouse_position()
-		print(card_stats.card_name, " gui_input, card=", self.name, "pos=", position, "global=", global_position, "rect=", get_global_rect(), "button=", event.button_index)
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if is_dragging:
+				return
+			is_dragging = true
+			dragging_offset = global_position - get_global_mouse_position()
+			print("Drag started for: ", card_stats.card_name)
+		else:
+			if not is_dragging:
+				return
+			var was_dropped_on_board := _is_over_board()
+			is_dragging = false
+			if was_dropped_on_board:
+				print("Card released on board: ", card_stats.card_name)
+				card_dropped.emit(card_stats)
+			else:
+				print("Card released outside board: ", card_stats.card_name)
+				card_clicked.emit(card_stats)
+	elif event is InputEventMouseMotion and is_dragging:
+		global_position = get_global_mouse_position() + dragging_offset
+
+func _is_over_board() -> bool:
+	var board := get_tree().get_root().get_node_or_null("Game/Board")
+	if board == null:
+		return false
+
+	var board_child := board.get_node_or_null("chessBoard")
+	if board_child is TileMapLayer:
+		var local_mouse : Vector2 = board_child.get_local_mouse_position()
+		var rect := Rect2(Vector2.ZERO, Vector2(8, 8) * 64.0)
+		return rect.has_point(local_mouse)
+
+	return false
 
 func hover_anim(type: int):
 	var t: Tween = create_tween().set_parallel(true)

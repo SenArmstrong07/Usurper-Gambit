@@ -19,6 +19,7 @@ var mana: int = 0
 
 func _init(team_id: int = 0) -> void:
 	team = team_id
+	mana = 10
 	initialize_deck()
 
 func _create_default_deck_resource() -> DeckResource:

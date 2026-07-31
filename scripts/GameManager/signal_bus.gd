@@ -27,6 +27,10 @@ signal unit_dropped(unit: Unit, cell: Vector2i)
 signal royal_defeated(unit)
 signal royal_assignment_finished(team)
 signal piece_defeated(victim, killer)
+
+# Gameplay effect events
+signal gameplay_effect_triggered(effect_name: String, context: Dictionary)
+
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	pass

@@ -8,6 +8,7 @@ const card_scene = preload("res://scenes/Card/CardUI.tscn")
 var player: Player = null
 var deck_ui: Control
 signal card_selected(card: Card)
+signal card_requested(card: Card)
 @export var hand_curve: Curve
 @export var rotation_curve: Curve
 
@@ -26,15 +27,6 @@ func _input(event):
 	if event is InputEventMouseMotion:
 		var hovered := get_viewport().gui_get_hovered_control()
 		print(hovered)
-		for c in card_container.get_children():
-			print("----------------")
-			print(c.name)
-			print("position =", c.position)
-			print("global =", c.global_position)
-			print("size =", c.size)
-			print("rect =", c.get_global_rect())
-			print("visible =", c.visible)
-			print("scale =", c.scale)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -66,7 +58,8 @@ func set_deck_ui(deck: Control) -> void:
 
 func _on_player_hand_changed() -> void:
 	print("HAND CHANGED SIGNAL")
-	refresh()
+	if player != null:
+		_update_cards()
 
 func _on_player_card_drawn(card: Card) -> void:
 	await animate_draw(card)
@@ -139,8 +132,13 @@ func _update_cards() -> void:
 		else:
 			print("    ", debug_card, "pos=", debug_card.position, "global=", debug_card.global_position, "z=", debug_card.z_index, "rect=", rect, "hit=", rect.has_point(mouse_pos))
 
-func _on_card_selected(card: Card):
+func _on_card_selected(card: Card) -> void:
 	card_selected.emit(card)
+
+func _on_card_dropped(card: Card) -> void:
+	print("Card dropped, requesting play for: ", card.card_name)
+	remove_card_ui(card)
+	card_requested.emit(card)
 
 func add_card_ui(card: Card) -> CardUI:
 	var ui := card_scene.instantiate() as CardUI
@@ -154,6 +152,7 @@ func add_card_ui(card: Card) -> CardUI:
 
 	ui.setup(card)
 	ui.card_clicked.connect(_on_card_selected)
+	ui.card_dropped.connect(_on_card_dropped)
 
 	_update_cards()
 	if ui is CardUI:
@@ -215,13 +214,16 @@ func _sort_hits_by_z(a: Dictionary, b: Dictionary) -> int:
 	return int(b["z"] - a["z"])
 
 func refresh() -> void:
-	for child in card_container.get_children():
-		child.free()
-
 	if player == null:
 		print("Player is null")
 		return
-	
+
+	for child in card_container.get_children():
+		if child is CardUI:
+			if child.card_clicked.is_connected(_on_card_selected):
+				child.card_clicked.disconnect(_on_card_selected)
+			child.free()
+
 	print("Hand size:", player.hand.size())
 	print("REFRESH CALLED")
 	for card in player.hand:
@@ -238,3 +240,18 @@ func refresh() -> void:
 		ui.card_clicked.connect(_on_card_selected)
 	print("Children after refresh:", card_container.get_child_count())
 	_update_cards()
+
+func remove_card_ui(card: Card) -> void:
+	if card == null or card_container == null:
+		return
+
+	for child in card_container.get_children():
+		if child is CardUI and child.card_stats == card:
+			if child.card_clicked.is_connected(_on_card_selected):
+				child.card_clicked.disconnect(_on_card_selected)
+			card_container.remove_child(child)
+			child.call_deferred("free")
+			_update_cards()
+			return
+
+	print("No card UI found for: ", card.card_name)

@@ -36,7 +36,7 @@ func _ready() -> void:
 	SignalBus.game_over.connect(_on_game_over)
 	SignalBus.royal_defeated.connect(_on_royal_defeated)
 	SignalBus.piece_defeated.connect(_on_piece_defeated)
-	hand.card_selected.connect(_on_hand_card_selected)
+	hand.card_requested.connect(_on_hand_card_requested)
 	_history_panel_setup()
 	add_ui()
 	if board != null:
@@ -208,9 +208,27 @@ func update_ui() -> void:
 	elif board != null and board.game_over:
 		status_label.text = "The throne has been claimed."
 
-func _on_hand_card_selected(card: Card):
-	if player == null:
+func _on_hand_card_requested(card: Card) -> void:
+	if game_over:
 		return
+	if player == null or card == null:
+		return
+	if not player.hand.has(card):
+		return
+	if player.mana < card.mana_cost:
+		return
+
+	player.mana -= card.mana_cost
+	player.discard_card(card)
+	print("Game accepted card play request for: ", card.card_name)
+
+	card.play({
+		"player": player,
+		"game": self,
+		"board": board
+	})
+
+	update_ui()
 
 func _on_draw_button_pressed() -> void:
 	print("Hand size:", player.hand.size())
