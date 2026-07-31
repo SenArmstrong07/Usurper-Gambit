@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="DeckResource" format=3 uid="uid://cd7ls2h4aehku"]
+
+[ext_resource type="Texture2D" uid="uid://djpujssmfer0j" path="res://assets/cards/card_back.png" id="1_gt2qe"]
+[ext_resource type="Script" uid="uid://boytdko1e84pj" path="res://scripts/Card/DeckResource.gd" id="1_trmst"]
+[ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/CardResource.gd" id="2_gt2qe"]
+[ext_resource type="Resource" uid="uid://bmnga5yecarsm" path="res://scripts/Card/PromotionCard.tres" id="4_7xdyq"]
+
+[resource]
+script = ExtResource("1_trmst")
+deck_name = "SampDeck"
+cover_texture = ExtResource("1_gt2qe")
+starting_cards = Array[ExtResource("2_gt2qe")]([ExtResource("4_7xdyq"), ExtResource("4_7xdyq"), ExtResource("4_7xdyq"), ExtResource("4_7xdyq"), ExtResource("4_7xdyq")])
+metadata/_custom_type_script = "uid://boytdko1e84pj"

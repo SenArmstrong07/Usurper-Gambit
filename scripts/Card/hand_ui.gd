@@ -1,82 +1,240 @@
 extends Control
 class_name HandUI
 
-var card_res := load("res://scripts/Card/PromotionCard.tres") as Card #a sample card for now
 const card_scene = preload("res://scenes/Card/CardUI.tscn")
 
-var cards: Array[Card] = []
+@onready var card_container: Control = $CardContainer
 
+var player: Player = null
+var deck_ui: Control
+signal card_selected(card: Card)
 @export var hand_curve: Curve
 @export var rotation_curve: Curve
 
 @export var max_rotation_degrees:= 5
-@export var x_sep := 10 #separation of the cards in the x axis
+@export var x_sep := 10 # separation of the cards in the x axis
+@export var min_sep := 30.0 # minimum spacing to avoid overlap
 @export var y_min:= 0
 @export var y_max  := -15
 
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	pass # Replace with function body.
-
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
-	pass
-
-func draw_card() -> void:
-	var new_card_ui = card_scene.instantiate() as CardUI
-	$CardContainer.add_child(new_card_ui)
-	new_card_ui.setup(card_res)
-	print("Drew a new card!")
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_update_cards()
 
-func discard_card() -> void:
-	if $CardContainer.get_child_count() < 1:
-		return
-	
-	var child = $CardContainer.get_child(-1)
-	child.reparent(get_tree().root)
-	child.queue_free()
-	print("Discarded a card!")
-	_update_cards()
-	
-func rebuild_hand() -> void:
-	for child in $CardContainer.get_children():
-		child.queue_free() #free all cards
-		
-	for card in cards:
-		var ui = card_res.instantiate()
-		ui.setup(card)
-		$CardContainer.add_child(ui)
-		
+func _input(event):
+	if event is InputEventMouseMotion:
+		var hovered := get_viewport().gui_get_hovered_control()
+		print(hovered)
+		for c in card_container.get_children():
+			print("----------------")
+			print(c.name)
+			print("position =", c.position)
+			print("global =", c.global_position)
+			print("size =", c.size)
+			print("rect =", c.get_global_rect())
+			print("visible =", c.visible)
+			print("scale =", c.scale)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_update_cards()
+	if what == NOTIFICATION_MOUSE_ENTER:
+		for card in card_container.get_children():
+			print(card, " enter")
+	elif what == NOTIFICATION_MOUSE_EXIT:
+		for card in card_container.get_children():
+			print(card, " enter")
+
+func set_player(new_player: Player) -> void:
+	if player != null:
+		if player.hand_changed.is_connected(_on_player_hand_changed):
+			player.hand_changed.disconnect(_on_player_hand_changed)
+		if player.card_drawn.is_connected(_on_player_card_drawn):
+			player.card_drawn.disconnect(_on_player_card_drawn)
+
+	player = new_player
+
+	if player != null:
+		player.hand_changed.connect(_on_player_hand_changed)
+		player.card_drawn.connect(_on_player_card_drawn)
+
+	refresh()
+
+func set_deck_ui(deck: Control) -> void:
+	deck_ui = deck
+
+func _on_player_hand_changed() -> void:
+	print("HAND CHANGED SIGNAL")
+	refresh()
+
+func _on_player_card_drawn(card: Card) -> void:
+	await animate_draw(card)
+
 func _update_cards() -> void:
-	var card_nodes := $CardContainer.get_children()
-	
-	var all_cards_size = CardUI.SIZE.x * card_nodes.size() + x_sep * (card_nodes.size() - 1)
+	if card_container == null:
+		return
+
+	var card_nodes := card_container.get_children()
+	var count := card_nodes.size()
+	if count == 0:
+		return
+
+	var container_width := card_container.size.x
+	if container_width <= 0:
+		container_width = get_viewport_rect().size.x
+
+	var card_scale := 1.0
 	var final_x_sep := x_sep
+	if count > 1:
+		var total_width := CardUI.SIZE.x * count + x_sep * (count - 1)
+		if total_width > container_width:
+			card_scale = clamp(container_width / total_width, 0.5, 1.0)
+			final_x_sep = x_sep * card_scale
+		else:
+			var available_space := container_width - CardUI.SIZE.x * count
+			var target_sep := available_space / (count - 1)
+			final_x_sep = clamp(target_sep, 0.0, x_sep)
 	
-	if card_nodes.size() > 1 and all_cards_size > size.x:
-		var divisor : int = max(1, card_nodes.size() - 1)
-		final_x_sep = (size.x - CardUI.SIZE.x * card_nodes.size()) / divisor
-		all_cards_size = size.x
-	
-	var offset : int = (size.x - all_cards_size) / 2
-	
-	for c in card_nodes.size():
+	var card_width := CardUI.SIZE.x * card_scale
+	var spacing := card_width + final_x_sep
+	var hand_width := spacing * (count - 1) + card_width
+	var center_x : float = container_width * 0.5
+	var first_card_x := (container_width - hand_width) * 0.5
+	print("----------------")
+	print("Player hand:", player.hand.size())
+	print("UI children:", card_container.get_child_count())
+	for c in count:
 		var card := card_nodes[c]
 		var sample_pos := 0.0
-		if card_nodes.size() > 1:
-			sample_pos = 1.0 / (card_nodes.size() - 1) * c
+		if count > 1:
+			sample_pos = 1.0 / (count - 1) * c
 		
 		var y_multiplier := hand_curve.sample(sample_pos)
 		var rot_multiplier := rotation_curve.sample(sample_pos)
 		
-		if card_nodes.size() == 1:
+		if count == 1:
 			y_multiplier = 0.0
 			rot_multiplier = 0.0
 		
-		var final_x: float = offset + CardUI.SIZE.x * c + final_x_sep * c
+		var final_x: float = first_card_x + spacing * c
 		var final_y: float = y_min + y_max * y_multiplier
 		
-		card.position = Vector2(final_x, final_y)
+		card.scale = Vector2(card_scale, card_scale)
+		var target_position = Vector2(final_x, final_y)
+		card.position = target_position
+		card.z_index = c
+		if card is CardUI:
+			card.default_z_index = c
+			card.set_base_position(target_position)
 		card.rotation_degrees = max_rotation_degrees * rot_multiplier
+	
+	print("HandLayout: ", count, "cards, container_width=", container_width, "sep=", final_x_sep, "scale=", card_scale)
+	var mouse_pos := get_global_mouse_position()
+	print("DEBUG mouse position=", mouse_pos)
+	for debug_card in card_nodes:
+		var rect = debug_card.get_global_rect()
+		if debug_card is CardUI:
+			print("    ", debug_card.name, "pos=", debug_card.position, "global=", debug_card.global_position, "scale=", debug_card.scale, "z=", debug_card.z_index, "rect=", rect, "hit=", rect.has_point(mouse_pos))
+		else:
+			print("    ", debug_card, "pos=", debug_card.position, "global=", debug_card.global_position, "z=", debug_card.z_index, "rect=", rect, "hit=", rect.has_point(mouse_pos))
+
+func _on_card_selected(card: Card):
+	card_selected.emit(card)
+
+func add_card_ui(card: Card) -> CardUI:
+	var ui := card_scene.instantiate() as CardUI
+
+	ui.size = CardUI.SIZE
+	ui.position = Vector2.ZERO
+	ui.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	card_container.add_child(ui)
+	ui.name = "CardUI_%d" % card_container.get_child_count()
+
+	ui.setup(card)
+	ui.card_clicked.connect(_on_card_selected)
+
+	_update_cards()
+	if ui is CardUI:
+		ui.set_base_position(ui.position)
+
+	return ui
+
+func animate_draw(card: Card):
+	print("--- Before draw ---")
+	for child in card_container.get_children():
+		print(child)
+	if deck_ui == null:
+		push_error("Deck UI not assigned!")
+		return
+	var ui := add_card_ui(card)
+	
+	var target := ui.global_position
+	
+	ui.global_position = deck_ui.global_position
+	ui.show_back()
+	
+	await ui.play_draw_animation(target)
+	print(
+	ui.name,
+	" scale=", ui.scale,
+	" size=", ui.size,
+	" rect=", ui.get_global_rect()
+)
+	
+func _get_next_card_position() -> Vector2:
+
+	var count := card_container.get_child_count()
+
+	var spacing := 120.0
+	var local_pos := Vector2(count * spacing, 0)
+	
+	var target_global = card_container.global_position
+	return target_global
+	
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var mouse_pos := get_viewport().get_mouse_position()
+		var hits := []
+		for child in card_container.get_children():
+			if child is CardUI:
+				var rect : Rect2 = child.get_global_rect()
+				if rect.has_point(mouse_pos):
+					hits.append({"name": child.name, "z": child.z_index, "rect": rect})
+		if hits.size() == 0:
+			print("DEBUG click: no card hit at", mouse_pos)
+		else:
+			hits.sort_custom(Callable(self, "_sort_hits_by_z"))
+			print("DEBUG click: mouse=", mouse_pos, "hits=")
+			for hit in hits:
+				print("    ", hit["name"], "z=", hit["z"], "rect=", hit["rect"])
+
+func _sort_hits_by_z(a: Dictionary, b: Dictionary) -> int:
+	return int(b["z"] - a["z"])
+
+func refresh() -> void:
+	for child in card_container.get_children():
+		child.free()
+
+	if player == null:
+		print("Player is null")
+		return
+	
+	print("Hand size:", player.hand.size())
+	print("REFRESH CALLED")
+	for card in player.hand:
+		print("Creating UI for:", card)
+		var ui := card_scene.instantiate() as CardUI
+		print("UI instance:", ui)
+
+		ui.size = CardUI.SIZE
+		ui.position = Vector2.ZERO
+		ui.mouse_filter = Control.MOUSE_FILTER_STOP
+		card_container.add_child(ui)
+		ui.name = "CardUI_%d" % card_container.get_child_count()
+		ui.setup(card)
+		ui.card_clicked.connect(_on_card_selected)
+	print("Children after refresh:", card_container.get_child_count())
+	_update_cards()

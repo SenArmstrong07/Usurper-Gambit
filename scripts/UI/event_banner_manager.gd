@@ -95,7 +95,7 @@ func _process_queue() -> void:
 		_delay_after_battle = false
 		await get_tree().create_timer(1.5).timeout
 	var item = _queue.pop_front()
-	var banner: Node = null
+	var banner: Node2D = null
 	if item.has("scene"):
 		var scene = item.scene
 		if scene is PackedScene:

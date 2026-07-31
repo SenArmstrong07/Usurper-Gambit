@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://1f36xddp8he8" path="res://scripts/UI/event_banner_manager.gd" id="2_evtmgr"]
 [ext_resource type="Script" uid="uid://k21bnuqq341y" path="res://scripts/UI/move_history_panel_container.gd" id="3_mvphist"]
 [ext_resource type="PackedScene" uid="uid://ui86flwprguw" path="res://scenes/Card/HandUI.tscn" id="5_jqg0t"]
+[ext_resource type="PackedScene" uid="uid://c2frfydl1h7um" path="res://scenes/Card/DeckUI.tscn" id="6_t2bjm"]
 
 [sub_resource type="Curve" id="Curve_jqg0t"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(0.98863643, 0.026785731), 0.0, 0.0, 0, 0]
@@ -29,7 +30,7 @@ zoom = Vector2(4, 4)
 [node name="EventBannerManager" type="Node2D" parent="UI" unique_id=1206943882]
 script = ExtResource("2_evtmgr")
 
-[node name="Game_Panel" type="Control" parent="UI" unique_id=1769433471]
+[node name="Handler" type="Control" parent="UI" unique_id=734888560]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -37,7 +38,15 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MoveHistoryPanelContainer" type="PanelContainer" parent="UI/Game_Panel" unique_id=429454880]
+[node name="Game_Panel" type="Control" parent="UI/Handler" unique_id=1769433471]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MoveHistoryPanelContainer" type="PanelContainer" parent="UI/Handler/Game_Panel" unique_id=429454880]
 custom_minimum_size = Vector2(220, 320)
 layout_mode = 1
 anchors_preset = -1
@@ -50,21 +59,21 @@ offset_right = -20.0
 offset_bottom = -380.0
 script = ExtResource("3_mvphist")
 
-[node name="MarginContainer" type="MarginContainer" parent="UI/Game_Panel/MoveHistoryPanelContainer" unique_id=1180053107]
+[node name="MarginContainer" type="MarginContainer" parent="UI/Handler/Game_Panel/MoveHistoryPanelContainer" unique_id=1180053107]
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/Game_Panel/MoveHistoryPanelContainer/MarginContainer" unique_id=1673623894]
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/Handler/Game_Panel/MoveHistoryPanelContainer/MarginContainer" unique_id=1673623894]
 custom_minimum_size = Vector2(59, 63)
 layout_mode = 2
 
-[node name="ScrollContainer" type="ScrollContainer" parent="UI/Game_Panel/MoveHistoryPanelContainer/MarginContainer/VBoxContainer" unique_id=1960528104]
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/Handler/Game_Panel/MoveHistoryPanelContainer/MarginContainer/VBoxContainer" unique_id=1960528104]
 custom_minimum_size = Vector2(59, 63)
 layout_mode = 2
 
-[node name="MovesListContainer" type="VBoxContainer" parent="UI/Game_Panel/MoveHistoryPanelContainer/MarginContainer/VBoxContainer/ScrollContainer" unique_id=1240330234]
+[node name="MovesListContainer" type="VBoxContainer" parent="UI/Handler/Game_Panel/MoveHistoryPanelContainer/MarginContainer/VBoxContainer/ScrollContainer" unique_id=1240330234]
 layout_mode = 2
 
-[node name="SideButton" type="Button" parent="UI/Game_Panel" unique_id=1087994321]
+[node name="SideButton" type="Button" parent="UI/Handler/Game_Panel" unique_id=1087994321]
 layout_mode = 0
 anchor_left = 1.0
 anchor_right = 1.0
@@ -75,7 +84,7 @@ offset_bottom = 40.0
 theme_override_font_sizes/font_size = 8
 text = "Minimize"
 
-[node name="DrawButton" type="Button" parent="UI/Game_Panel" unique_id=1602665212]
+[node name="DrawButton" type="Button" parent="UI/Handler/Game_Panel" unique_id=1602665212]
 layout_mode = 0
 offset_left = 27.0
 offset_top = 368.0
@@ -83,7 +92,7 @@ offset_right = 76.0
 offset_bottom = 399.0
 text = "Draw"
 
-[node name="Discard" type="Button" parent="UI/Game_Panel" unique_id=122820005]
+[node name="Discard" type="Button" parent="UI/Handler/Game_Panel" unique_id=122820005]
 layout_mode = 0
 offset_left = 26.0
 offset_top = 416.0
@@ -92,13 +101,23 @@ offset_bottom = 447.0
 text = "Discard
 "
 
-[node name="HandUi" parent="UI" unique_id=587290287 instance=ExtResource("5_jqg0t")]
-offset_left = 246.0
-offset_top = 611.0
-offset_right = -317.0
-offset_bottom = -2.0
+[node name="DeckUI" parent="UI/Handler" unique_id=2032052195 instance=ExtResource("6_t2bjm")]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 400.0
+offset_right = 318.0
+offset_bottom = 678.0
+
+[node name="HandUi" parent="UI/Handler" unique_id=587290287 instance=ExtResource("5_jqg0t")]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 1.0
+offset_left = 5.0
+offset_top = -144.0
+offset_right = -9.0
+offset_bottom = -3.0
 hand_curve = SubResource("Curve_jqg0t")
 rotation_curve = SubResource("Curve_t2bjm")
 
-[connection signal="pressed" from="UI/Game_Panel/DrawButton" to="." method="_on_draw_button_pressed"]
-[connection signal="pressed" from="UI/Game_Panel/Discard" to="." method="_on_discard_pressed"]
+[connection signal="pressed" from="UI/Handler/Game_Panel/DrawButton" to="." method="_on_draw_button_pressed"]
+[connection signal="pressed" from="UI/Handler/Game_Panel/Discard" to="." method="_on_discard_pressed"]

@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://c2frfydl1h7um"]
+
+[ext_resource type="Script" uid="uid://dulu1ju5h8h2k" path="res://scripts/Card/deck_ui.gd" id="1_a75wr"]
+[ext_resource type="Resource" uid="uid://cd7ls2h4aehku" path="res://scripts/Card/DeckCover.tres" id="2_tb3v0"]
+
+[node name="DeckUI" type="Control" unique_id=2032052195]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 200.0
+offset_bottom = 278.0
+script = ExtResource("1_a75wr")
+deck_res = ExtResource("2_tb3v0")
+
+[node name="DeckCover" type="TextureRect" parent="." unique_id=911534245]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0

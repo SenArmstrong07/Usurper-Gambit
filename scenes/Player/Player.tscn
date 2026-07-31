@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://ca8bbe5litwf3"]
+
+[ext_resource type="Script" uid="uid://bj61ndb37qlj1" path="res://scripts/Player/player.gd" id="1_bvqhm"]
+[ext_resource type="PackedScene" uid="uid://c2frfydl1h7um" path="res://scenes/Card/DeckUI.tscn" id="1_ky53y"]
+
+[node name="Player" type="Node2D" unique_id=1355496012]
+script = ExtResource("1_bvqhm")
+
+[node name="DeckUI" parent="." unique_id=2032052195 instance=ExtResource("1_ky53y")]

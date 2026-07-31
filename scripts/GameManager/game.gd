@@ -3,9 +3,15 @@ class_name Game
 
 const MoveHistoryPanelContainer = preload("res://scripts/UI/move_history_panel_container.gd")
 
+
 signal wait_selected
 
-@onready var hand: HandUI = $UI/HandUi
+const OPENING_HAND_SIZE := 3
+
+@onready var hand: HandUI = $UI/Handler/HandUi
+@onready var deck_ui: DeckUI = $UI/Handler/DeckUI
+
+var player: Player
 
 var selected_piece: Vector2
 var board: Board
@@ -30,13 +36,30 @@ func _ready() -> void:
 	SignalBus.game_over.connect(_on_game_over)
 	SignalBus.royal_defeated.connect(_on_royal_defeated)
 	SignalBus.piece_defeated.connect(_on_piece_defeated)
+	hand.card_selected.connect(_on_hand_card_selected)
 	_history_panel_setup()
 	add_ui()
 	if board != null:
+		player = board.get_player(0)
+		if player == null:
+			player = Player.new(0)
+		hand.set_player(player)
+		hand.set_deck_ui(deck_ui)
+		start_preparation_phase()
 		start_battle()
 
 func _process(delta: float) -> void:
 	pass
+
+func start_preparation_phase() -> void:
+	if player != null:
+		player.initialize_deck()
+		for i in OPENING_HAND_SIZE:
+			#player.draw_card()
+			pass
+
+	if hand != null:
+		hand.set_player(player)
 
 func start_battle() -> void:
 	if board == null:
@@ -139,7 +162,7 @@ func coordinate_to_notation(cell: Vector2i) -> String:
 	return files[cell.x] + str(8 - cell.y)
 
 func _history_panel_setup() -> void:
-	history_panel = get_node_or_null("UI/Game_Panel/MoveHistoryPanelContainer") as MoveHistoryPanelContainer
+	history_panel = get_node_or_null("UI/Handler/Game_Panel/MoveHistoryPanelContainer") as MoveHistoryPanelContainer
 	if history_panel == null:
 		push_error("MoveHistoryPanelContainer not found in scene tree")
 
@@ -185,10 +208,19 @@ func update_ui() -> void:
 	elif board != null and board.game_over:
 		status_label.text = "The throne has been claimed."
 
+func _on_hand_card_selected(card: Card):
+	if player == null:
+		return
 
 func _on_draw_button_pressed() -> void:
-	hand.draw_card()
-
+	print("Hand size:", player.hand.size())
+	print("UI children:", hand.card_container.get_child_count())
+	if player == null:
+		return
+	player.draw_card()
+	
 
 func _on_discard_pressed() -> void:
-	hand.discard_card()
+	if player == null or player.hand.is_empty():
+		return
+	player.discard_card(player.hand[-1])
