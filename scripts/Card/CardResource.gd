@@ -1,10 +1,11 @@
 extends Resource
 class_name Card
 
-@export var card_name: String
-@export var description: String
-@export var mana_cost: int
+@export var card_name: String = "Card"
+@export var description: String = ""
+@export var mana_cost: int = 0
 @export var card_theme: CardTheme
+@export var play_conditions: Array[String] = []
 enum TargetType
 {
 NONE,
@@ -18,15 +19,12 @@ ALL_ALLIES,
 ALL_ENEMIES
 }
 
-@export var target_type: TargetType
+@export var target_type: TargetType = TargetType.NONE
 
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	pass # Replace with function body.
+	pass
 
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	pass
 
 func play(context: Dictionary = {}) -> void:
@@ -34,15 +32,24 @@ func play(context: Dictionary = {}) -> void:
 	print("A gameplay effect was executed: ", effect_name)
 	SignalBus.gameplay_effect_triggered.emit(effect_name, context)
 
+func has_play_condition(condition: String) -> bool:
+	if condition == null:
+		return false
+	var normalized := condition.strip_edges().to_lower()
+	for item in play_conditions:
+		if item != null and item.strip_edges().to_lower() == normalized:
+			return true
+	return false
+
 func _get_effect_name() -> String:
 	if card_name == null:
 		return "generic_card_effect"
 
 	var name_lower := card_name.to_lower()
 	if "promotion" in name_lower:
-		return "promote_pawn"
-	if "teleport" in name_lower:
-		return "move_unit"
+		return "promote_piece"
+	if "action" in name_lower:
+		return "move_piece"
 	if "trap" in name_lower:
 		return "spawn_trap"
 	return "generic_card_effect"

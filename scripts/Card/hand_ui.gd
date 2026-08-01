@@ -7,8 +7,12 @@ const card_scene = preload("res://scenes/Card/CardUI.tscn")
 
 var player: Player = null
 var deck_ui: Control
+var _draw_queue: Array[Card] = []
+var _is_drawing_opening_hand: bool = false
 signal card_selected(card: Card)
-signal card_requested(card: Card)
+signal card_requested(card: Card, mouse_pos: Vector2)
+signal opening_draw_started
+signal opening_draw_completed
 @export var hand_curve: Curve
 @export var rotation_curve: Curve
 
@@ -44,12 +48,15 @@ func set_player(new_player: Player) -> void:
 			player.hand_changed.disconnect(_on_player_hand_changed)
 		if player.card_drawn.is_connected(_on_player_card_drawn):
 			player.card_drawn.disconnect(_on_player_card_drawn)
+		if player.card_discarded.is_connected(_on_player_card_discarded):
+			player.card_discarded.disconnect(_on_player_card_discarded)
 
 	player = new_player
 
 	if player != null:
 		player.hand_changed.connect(_on_player_hand_changed)
 		player.card_drawn.connect(_on_player_card_drawn)
+		player.card_discarded.connect(_on_player_card_discarded)
 
 	refresh()
 
@@ -58,11 +65,21 @@ func set_deck_ui(deck: Control) -> void:
 
 func _on_player_hand_changed() -> void:
 	print("HAND CHANGED SIGNAL")
-	if player != null:
-		_update_cards()
+	if player == null:
+		return
+	if _is_drawing_opening_hand:
+		return
+	refresh()
 
 func _on_player_card_drawn(card: Card) -> void:
-	await animate_draw(card)
+	_draw_queue.append(card)
+	if not _is_drawing_opening_hand:
+		_is_drawing_opening_hand = true
+		emit_signal("opening_draw_started")
+		await _process_draw_queue()
+
+func _on_player_card_discarded(card: Card) -> void:
+	refresh()
 
 func _update_cards() -> void:
 	if card_container == null:
@@ -137,8 +154,7 @@ func _on_card_selected(card: Card) -> void:
 
 func _on_card_dropped(card: Card) -> void:
 	print("Card dropped, requesting play for: ", card.card_name)
-	remove_card_ui(card)
-	card_requested.emit(card)
+	card_requested.emit(card, get_global_mouse_position())
 
 func add_card_ui(card: Card) -> CardUI:
 	var ui := card_scene.instantiate() as CardUI
@@ -160,6 +176,13 @@ func add_card_ui(card: Card) -> CardUI:
 
 	return ui
 
+func _process_draw_queue() -> void:
+	while _draw_queue.size() > 0:
+		var card: Card = _draw_queue.pop_front()
+		await animate_draw(card)
+	_is_drawing_opening_hand = false
+	emit_signal("opening_draw_completed")
+
 func animate_draw(card: Card):
 	print("--- Before draw ---")
 	for child in card_container.get_children():
@@ -167,10 +190,13 @@ func animate_draw(card: Card):
 	if deck_ui == null:
 		push_error("Deck UI not assigned!")
 		return
+
 	var ui := add_card_ui(card)
+	ui.show_back()
 	
+	# Ensure the card UI has its final layout before animating from the deck.
+	_update_cards()
 	var target := ui.global_position
-	
 	ui.global_position = deck_ui.global_position
 	ui.show_back()
 	
@@ -238,6 +264,7 @@ func refresh() -> void:
 		ui.name = "CardUI_%d" % card_container.get_child_count()
 		ui.setup(card)
 		ui.card_clicked.connect(_on_card_selected)
+		ui.card_dropped.connect(_on_card_dropped)
 	print("Children after refresh:", card_container.get_child_count())
 	_update_cards()
 

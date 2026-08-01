@@ -2,7 +2,9 @@ extends RefCounted
 class_name Player
 
 signal card_drawn(card: Card)
+signal card_discarded(card: Card)
 signal hand_changed
+signal deck_shuffled
 
 var team: int = 0
 
@@ -14,21 +16,37 @@ var deck: Deck = null
 var hand: Array[Card] = []
 
 var mana: int = 0
-
-
+var current_mana: int = 0
+var max_mana: int = 0
+var hand_size_limit: int = 7
+var opening_hand_size: int = 5
+var suppress_hand_changed: bool = false
 
 func _init(team_id: int = 0) -> void:
 	team = team_id
-	mana = 10
+	initialize_mana()
 	initialize_deck()
 
+func initialize_mana() -> void:
+	current_mana = 10
+	max_mana = 10
+	mana = current_mana
+
 func _create_default_deck_resource() -> DeckResource:
+	var starter_path := "res://scripts/Card/StarterDeck.tres"
+	if ResourceLoader.exists(starter_path):
+		var resource := load(starter_path) as DeckResource
+		if resource != null:
+			return resource
+
 	var resource := DeckResource.new()
 	resource.deck_name = "Starter Deck"
-	resource.starting_cards = [
-		load("res://scripts/Card/PromotionCard.tres") as Card,
-		load("res://scripts/Card/PromotionCard.tres") as Card,
-		load("res://scripts/Card/PromotionCard.tres") as Card]
+	resource.opening_hand_size = 5
+	resource.starting_cards = []
+	var card_resource := load("res://scripts/Card/PromotionCard.tres") as Card
+	if card_resource != null:
+		for i in range(5):
+			resource.starting_cards.append(card_resource)
 	return resource
 
 func initialize_deck(deck_node: Deck = null, resource: DeckResource = null) -> void:
@@ -42,6 +60,7 @@ func initialize_deck(deck_node: Deck = null, resource: DeckResource = null) -> v
 
 	if deck != null:
 		deck.initialize(resource)
+		opening_hand_size = resource.opening_hand_size if resource.opening_hand_size > 0 else 5
 
 func get_royal_unit() -> Unit:
 	return royal_unit
@@ -63,17 +82,27 @@ func clear_royal_unit() -> void:
 
 func mark_royal_defeated() -> void:
 	royal_defeated = true
-	
+
 func draw_card() -> Card:
 	if deck == null:
 		initialize_deck()
 
 	var card := deck.draw()
 	if card != null:
-		hand.append(card)
-		card_drawn.emit(card)
-		#hand_changed.emit()
+		if hand.size() < hand_size_limit:
+			hand.append(card)
+			card_drawn.emit(card)
+			if not suppress_hand_changed:
+				hand_changed.emit()
+		else:
+			deck.discard(card)
 	return card
+
+func draw_opening_hand() -> void:
+	for i in range(opening_hand_size):
+		if hand.size() >= hand_size_limit:
+			break
+		draw_card()
 
 func discard_card(card: Card) -> void:
 	if card == null:
@@ -83,4 +112,29 @@ func discard_card(card: Card) -> void:
 		hand.erase(card)
 		if deck != null:
 			deck.discard(card)
+		card_discarded.emit(card)
 		hand_changed.emit()
+
+func shuffle_deck() -> void:
+	if deck == null:
+		initialize_deck()
+	deck.shuffle()
+	deck_shuffled.emit()
+
+func begin_turn() -> void:
+	max_mana = min(max_mana + 1, 10)
+	current_mana = max_mana
+	mana = current_mana
+	draw_card()
+
+func spend_mana(cost: int) -> bool:
+	if cost <= 0:
+		return true
+	if current_mana < cost:
+		return false
+	current_mana -= cost
+	mana = current_mana
+	return true
+
+func has_mana(cost: int) -> bool:
+	return current_mana >= cost

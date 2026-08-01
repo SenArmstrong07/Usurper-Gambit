@@ -21,6 +21,8 @@ var _queue: Array = []
 var _showing: bool = false
 var _delay_after_battle: bool = false
 var _royal_phase_banner_scheduled: bool = false
+var _hold_phase_banner: bool = false
+var _pending_phase_team: int = -1
 
 func _ready() -> void:
 	get_tree().node_added.connect(_on_tree_node_added)
@@ -133,11 +135,25 @@ func _on_game_over(winner) -> void:
 	announce_type(BannerType.BATTLE_OVER, {"winner": winner})
 
 func _on_royal_assignment_finished(team: int) -> void:
+	# The first turn-phase banner should wait until the opening hand draw animation finishes.
 	if _royal_phase_banner_scheduled:
+		return
+	if _hold_phase_banner:
+		_pending_phase_team = team
 		return
 	_royal_phase_banner_scheduled = true
 	var timer := get_tree().create_timer(1.0)
 	timer.timeout.connect(func() -> void:
 		_royal_phase_banner_scheduled = false
+		if _hold_phase_banner:
+			_pending_phase_team = team
+			return
 		announce_type(BannerType.PHASE, {"team": team})
 	, CONNECT_ONE_SHOT)
+
+func set_hold_phase_banner(hold: bool) -> void:
+	_hold_phase_banner = hold
+	if not _hold_phase_banner and _pending_phase_team >= 0:
+		var team := _pending_phase_team
+		_pending_phase_team = -1
+		announce_type(BannerType.PHASE, {"team": team})

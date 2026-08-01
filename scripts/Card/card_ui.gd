@@ -149,13 +149,13 @@ func play_draw_animation(target_pos: Vector2):
 
 	var tween := create_tween()
 
-	tween.parallel().tween_property(self, "global_position", target_pos, 0.3)
+	tween.parallel().tween_property(self, "global_position", target_pos, 0.18)
 
-	tween.tween_property(self, "scale:x", 0.0, 0.15)
+	tween.tween_property(self, "scale:x", 0.0, 0.08)
 
 	tween.tween_callback(show_front)
 
-	tween.tween_property(self, "scale:x", 1.0, 0.15)
+	tween.tween_property(self, "scale:x", 1.0, 0.08)
 	
 	await tween.finished
 

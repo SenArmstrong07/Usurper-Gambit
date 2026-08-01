@@ -933,6 +933,52 @@ func get_player(team: int) -> Player:
 		return null
 	return players[team]
 
+func get_valid_card_targets(card: Card, acting_player: Player = null) -> Array[Vector2i]:
+	if card == null:
+		return []
+	var team := acting_player.team if acting_player != null else current_turn
+	var targets: Array[Vector2i] = []
+	match card.target_type:
+		Card.TargetType.NONE:
+			return []
+		Card.TargetType.ALLY_UNIT:
+			for unit in units.get_children():
+				if unit is Unit and unit.team == team:
+					targets.append(unit.grid_pos)
+		Card.TargetType.ENEMY_UNIT:
+			for unit in units.get_children():
+				if unit is Unit and unit.team != team:
+					targets.append(unit.grid_pos)
+		Card.TargetType.ANY_UNIT:
+			for unit in units.get_children():
+				if unit is Unit:
+					targets.append(unit.grid_pos)
+		Card.TargetType.EMPTY_CELL:
+			for x in range(BOARD_SIZE):
+				for y in range(BOARD_SIZE):
+					var cell := Vector2i(x, y)
+					if get_unit_at(cell) == null:
+						targets.append(cell)
+		Card.TargetType.ANY_CELL:
+			for x in range(BOARD_SIZE):
+				for y in range(BOARD_SIZE):
+					targets.append(Vector2i(x, y))
+		Card.TargetType.SELF:
+			for unit in units.get_children():
+				if unit is Unit and unit.team == team:
+					targets.append(unit.grid_pos)
+		Card.TargetType.ALL_ALLIES:
+			for unit in units.get_children():
+				if unit is Unit and unit.team == team:
+					targets.append(unit.grid_pos)
+		Card.TargetType.ALL_ENEMIES:
+			for unit in units.get_children():
+				if unit is Unit and unit.team != team:
+					targets.append(unit.grid_pos)
+		_:
+			return []
+	return targets
+
 func can_claim_throne(team: int) -> bool:
 	if throne_manager == null:
 		return false
