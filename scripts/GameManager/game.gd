@@ -17,6 +17,7 @@ var current_player: int = 0
 var history_panel: MoveHistoryPanelContainer
 var turn_label: Label
 var status_label: Label
+var mana_label: Label
 var game_over_label: Label
 var reset_button: Button
 var game_over: bool = false
@@ -227,6 +228,12 @@ func add_ui() -> void:
 	status_label.size = Vector2(320, 120)
 	canvas.add_child(status_label)
 
+	mana_label = Label.new()
+	mana_label.name = "ManaLabel"
+	mana_label.position = Vector2(5, 300)
+	mana_label.size = Vector2(320, 40)
+	canvas.add_child(mana_label)
+
 	game_over_label = Label.new()
 	game_over_label.name = "GameOverLabel"
 	game_over_label.position = Vector2(20, 430)
@@ -244,8 +251,15 @@ func add_ui() -> void:
 	canvas.add_child(reset_button)
 
 func update_ui() -> void:
-	# Sync current_player with board's turn
 	current_player = board.current_turn
+	if turn_label != null:
+		turn_label.text = "Turn: %s" % ("White" if current_player == 0 else "Black")
+	if mana_label != null:
+		var active_player := board.get_player(current_player) if board != null else player
+		if active_player != null:
+			mana_label.text = "Mana: %d / %d" % [active_player.current_mana, active_player.max_mana]
+		else:
+			mana_label.text = "Mana: 0 / 0"
 	if board != null and board.has_method("is_royal_assignment_active") and board.is_royal_assignment_active():
 		status_label.text = "Choose your monarch for %s." % ("White" if current_player == 0 else "Black")
 	elif board != null and board.game_over:
@@ -292,7 +306,11 @@ func _on_hand_card_requested(card: Card, mouse_pos: Vector2) -> void:
 	if not player.hand.has(card):
 		return
 	if not validate_card_play(card, mouse_pos):
+		if board != null:
+			board.clear_highlights()
 		return
+	if board != null:
+		board.show_card_target_highlights(card, player)
 	if not player.spend_mana(card.mana_cost):
 		return
 
@@ -306,6 +324,8 @@ func _on_hand_card_requested(card: Card, mouse_pos: Vector2) -> void:
 		"target_cell": board.world_to_grid(mouse_pos)
 	})
 
+	if board != null:
+		board.clear_highlights()
 	update_ui()
 
 func _on_draw_button_pressed() -> void:
@@ -313,7 +333,10 @@ func _on_draw_button_pressed() -> void:
 	print("UI children:", hand.card_container.get_child_count())
 	if player == null:
 		return
-	player.draw_card()
+	var active_player := board.get_player(current_player) if board != null else player
+	if active_player == null or current_player != active_player.team:
+		return
+	active_player.draw_card()
 
 func _on_discard_pressed() -> void:
 	if player == null or player.hand.is_empty():

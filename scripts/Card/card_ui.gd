@@ -143,19 +143,21 @@ func _on_mouse_exited() -> void:
 	card_is_focused(false)
 	
 func play_draw_animation(target_pos: Vector2):
+	var flip_duration : float = 0.13
+	var travel_duration : float = 0.20
 	show_back()
 
 	scale.x = 1.0
 
 	var tween := create_tween()
 
-	tween.parallel().tween_property(self, "global_position", target_pos, 0.18)
+	tween.parallel().tween_property(self, "global_position", target_pos, travel_duration)
 
-	tween.tween_property(self, "scale:x", 0.0, 0.08)
+	tween.tween_property(self, "scale:x", 0.0, flip_duration)
 
 	tween.tween_callback(show_front)
 
-	tween.tween_property(self, "scale:x", 1.0, 0.08)
+	tween.tween_property(self, "scale:x", 1.0, flip_duration)
 	
 	await tween.finished
 
@@ -203,14 +205,16 @@ func _is_over_board() -> bool:
 	return false
 
 func hover_anim(type: int):
+	var zoom_in_scale : Vector2 = Vector2(1.08, 1.08)
+	var zoom_out_scale : Vector2 = Vector2.ONE
 	var t: Tween = create_tween().set_parallel(true)
 	match type:
 		#Quick zoom-in (0)/zoom-out (1) effect
 		0:
-			t.tween_property(self, "scale", Vector2(1.08, 1.08), 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			t.tween_property(self, "scale", zoom_in_scale, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			t.tween_property(self, "position", Vector2(base_position.x, base_position.y - 20.0), 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 		1:
-			t.tween_property(self, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			t.tween_property(self, "scale", zoom_out_scale, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			t.tween_property(self, "position", base_position, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _set_children_mouse_filter(node: Node) -> void:

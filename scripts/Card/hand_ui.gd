@@ -206,7 +206,7 @@ func animate_draw(card: Card):
 	" scale=", ui.scale,
 	" size=", ui.size,
 	" rect=", ui.get_global_rect()
-)
+	)
 	
 func _get_next_card_position() -> Vector2:
 

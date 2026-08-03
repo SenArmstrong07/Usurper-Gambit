@@ -32,6 +32,8 @@ var pending_attack_targets: Array[Vector2i] = []
 var pending_battle_attacker: Unit = null
 var pending_battle_defender: Unit = null
 var pending_history_actions: Array = []
+var piece_move_pending: bool = false
+var piece_action_completed: bool = false
 var royal_assignment_active: bool = false
 
 const HighlightManagerScene = preload("res://scripts/UI/highlight_manager.gd")
@@ -127,10 +129,25 @@ func handle_click(cell: Vector2i) -> void:
 			if target != null and target.team != pending_attack_unit.team:
 				show_battle_overlay(pending_attack_unit, target)
 				return
-		clear_highlights()
-		pending_attack_unit = null
-		pending_attack_targets.clear()
-		board_state = BoardState.IDLE
+		# Cancel the pending attack action and undo the prior move if it is still pending.
+		if piece_move_pending:
+			undo_last_action()
+		else:
+			clear_highlights()
+			pending_attack_unit = null
+			pending_attack_targets.clear()
+			board_state = BoardState.IDLE
+		return
+
+	if board_state == BoardState.AWAITING_ACTION:
+		# Any board click while waiting for the player to confirm or attack should cancel the pending move
+		if piece_move_pending:
+			undo_last_action()
+		else:
+			if action_popup_controller != null:
+				action_popup_controller.clear()
+			clear_highlights()
+			board_state = BoardState.IDLE
 		return
 
 	if board_state != BoardState.IDLE and board_state != BoardState.SELECTING:
@@ -223,6 +240,16 @@ func highlight_cells(cells: Array[Vector2i], use_attack_texture: bool = false) -
 		highlight_manager.show_attack_tiles(cells)
 	else:
 		highlight_manager.show_move_tiles(cells)
+
+func show_card_target_highlights(card: Card, acting_player: Player = null) -> void:
+	if card == null:
+		clear_highlights()
+		return
+	var targets := get_valid_card_targets(card, acting_player)
+	if targets.is_empty():
+		clear_highlights()
+		return
+	highlight_cells(targets)
 
 func setup_initial_pieces() -> void:
 	clear_board()
@@ -495,11 +522,12 @@ func can_move_to(unit: Unit, destination: Vector2i) -> bool:
 	return destination in unit.get_valid_moves(self)
 
 func can_undo_last_action() -> bool:
-	return last_action_piece != null and last_action_piece.is_inside_tree() and last_action_from != last_action_to and last_action_piece.grid_pos == last_action_to and last_action_piece.team == current_turn
+	return last_action_piece != null and last_action_piece.is_inside_tree() and last_action_from != last_action_to and last_action_piece.grid_pos == last_action_to and last_action_piece.team == current_turn and piece_move_pending
 
 func request_post_move_action(unit: Unit) -> void:
 	if unit == null:
 		return
+	piece_move_pending = true
 	post_move_unit = unit
 	board_state = BoardState.AWAITING_ACTION
 	var can_attack := false
@@ -546,7 +574,11 @@ func undo_last_action() -> void:
 	post_move_unit = null
 	pending_attack_unit = null
 	pending_attack_targets.clear()
+	piece_move_pending = false
+	piece_action_completed = false
 	selected_unit = null
+	if action_popup_controller != null:
+		action_popup_controller.clear()
 	clear_highlights()
 	board_state = BoardState.IDLE
 
@@ -591,6 +623,10 @@ func _on_selection_attack() -> void:
 	print("[Board._on_selection_attack] selected_unit", selected_unit)
 	if selected_unit == null:
 		board_state = BoardState.IDLE
+		return
+	if piece_action_completed:
+		board_state = BoardState.IDLE
+		clear_highlights()
 		return
 	var enemy_list := get_attackable_enemies(selected_unit)
 	if enemy_list.is_empty():
@@ -641,6 +677,13 @@ func _on_action_wait() -> void:
 		if action.has("unit"):
 			SignalBus.turn_wait_confirmed.emit(action["unit"], action["from"], action["to"])
 	pending_history_actions.clear()
+	piece_move_pending = false
+	piece_action_completed = true
+	post_move_unit = null
+	pending_attack_unit = null
+	pending_attack_targets.clear()
+	if action_popup_controller != null:
+		action_popup_controller.clear()
 	board_state = BoardState.IDLE
 	check_game_state()
 	check_victory_conditions()
@@ -678,6 +721,8 @@ func _on_battle_resolved(result: String) -> void:
 			if action.has("unit"):
 				SignalBus.turn_wait_confirmed.emit(action["unit"], action["from"], action["to"])
 		pending_history_actions.clear()
+	piece_move_pending = false
+	piece_action_completed = true
 	pending_battle_attacker = null
 	pending_battle_defender = null
 	post_move_unit = null
@@ -702,6 +747,11 @@ func _on_action_attack() -> void:
 		if attacker.can_attack_target(enemy):
 			enemy_list.append(enemy)
 	if enemy_list.is_empty():
+		piece_move_pending = false
+		piece_action_completed = true
+		post_move_unit = null
+		pending_attack_unit = null
+		pending_attack_targets.clear()
 		board_state = BoardState.IDLE
 		check_game_state()
 		return
@@ -1056,6 +1106,13 @@ func check_game_state() -> void:
 	var opponent_team := 1 - current_turn
 	update_king_check_visuals()
 	current_turn = opponent_team
+	piece_move_pending = false
+	piece_action_completed = false
+	post_move_unit = null
+	pending_attack_unit = null
+	pending_attack_targets.clear()
+	selected_unit = null
+	clear_highlights()
 	# Announce the new phase via EventBannerManager if present
 	var banner_mgr = get_tree().get_root().get_node_or_null("Game/UI/EventBannerManager")
 	if banner_mgr and banner_mgr.has_method("announce_type"):
