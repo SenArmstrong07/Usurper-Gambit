@@ -57,7 +57,6 @@ func _input(event: InputEvent) -> void:
 		return
 	if board != null and board.input_locked:
 		return
-
 	if board != null and board.game_over:
 		return
 
@@ -196,12 +195,6 @@ func _update_hover_shape() -> void:
 	if hover_collision.shape is RectangleShape2D:
 		hover_collision.shape.size = base_size
 
-func is_enemy_in_range() -> bool:
-	return false
-
-func is_valid_move() -> bool:
-	return false
-
 func get_valid_moves(board: Board) -> Array[Vector2i]:
 	if movement_component == null:
 		return []
@@ -323,6 +316,10 @@ func get_attack_component() -> AtkComponent:
 func get_health_component() -> HealthComponent:
 	var health_node := get_node_or_null("HealthComponent") as HealthComponent
 	return health_node
+
+func get_status_component() -> StatusComponent:
+	var status_node := get_node_or_null("StatusComponent") as StatusComponent
+	return status_node
 
 func get_attack_damage() -> int:
 	var attack_component := get_attack_component()

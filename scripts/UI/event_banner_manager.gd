@@ -4,7 +4,7 @@ extends Node2D
 
 class_name EventBannerManager
 
-const PhaseBannerScene := preload("res://scenes/UI/PhaseBanner.tscn")
+const TurnBannerScene := preload("res://scenes/UI/TurnBanner.tscn")
 const PieceDeathBannerScene := preload("res://scenes/UI/PieceDeathBanner.tscn")
 const BattleOverBannerScene := preload("res://scenes/UI/BattleOverBanner.tscn")
 
@@ -12,6 +12,7 @@ signal banner_started
 signal banner_finished
 
 enum BannerType {
+	TURN,
 	PHASE,
 	PIECE_DEATH,
 	BATTLE_OVER
@@ -45,10 +46,10 @@ func _on_battle_animation_finished() -> void:
 # Centralized template builders for banner text
 func _build_banner_for_type(btype: int, data: Dictionary) -> Dictionary:
 	match btype:
-		BannerType.PHASE:
+		BannerType.TURN:
 			var team = data.get("team", null)
 			var name = "White" if team == 0 else "Black"
-			return {"title": "%s Phase" % name, "subtitle": data.get("subtitle", "")}
+			return {"title": "%s Turn" % name, "subtitle": data.get("subtitle", "")}
 		BannerType.PIECE_DEATH:
 			var victim: Variant = data.get("victim", null)
 			var killer: Variant = data.get("killer", null)
@@ -103,18 +104,18 @@ func _process_queue() -> void:
 		if scene is PackedScene:
 			banner = scene.instantiate()
 		else:
-			banner = PhaseBannerScene.instantiate()
+			banner = TurnBannerScene.instantiate()
 	else:
-		var btype = item.get("type", BannerType.PHASE)
+		var btype = item.get("type", BannerType.TURN)
 		match btype:
-			BannerType.PHASE:
-				banner = PhaseBannerScene.instantiate()
+			BannerType.TURN:
+				banner = TurnBannerScene.instantiate()
 			BannerType.PIECE_DEATH:
 				banner = PieceDeathBannerScene.instantiate()
 			BannerType.BATTLE_OVER:
 				banner = BattleOverBannerScene.instantiate()
 			_:
-				banner = PhaseBannerScene.instantiate()
+				banner = TurnBannerScene.instantiate()
 
 	add_child(banner)
 	banner.show_banner(item.title, item.subtitle)
@@ -126,7 +127,7 @@ func _process_queue() -> void:
 
 # --- Signal handlers for gameplay events ---
 func _on_round_started(round) -> void:
-	announce_type(BannerType.PHASE, {"team": round})
+	announce_type(BannerType.TURN, {"team": round})
 
 func _on_piece_defeated(victim, killer) -> void:
 	announce_type(BannerType.PIECE_DEATH, {"victim": victim, "killer": killer})
@@ -148,7 +149,7 @@ func _on_royal_assignment_finished(team: int) -> void:
 		if _hold_phase_banner:
 			_pending_phase_team = team
 			return
-		announce_type(BannerType.PHASE, {"team": team})
+		announce_type(BannerType.TURN, {"team": team})
 	, CONNECT_ONE_SHOT)
 
 func set_hold_phase_banner(hold: bool) -> void:
@@ -156,4 +157,4 @@ func set_hold_phase_banner(hold: bool) -> void:
 	if not _hold_phase_banner and _pending_phase_team >= 0:
 		var team := _pending_phase_team
 		_pending_phase_team = -1
-		announce_type(BannerType.PHASE, {"team": team})
+		announce_type(BannerType.TURN, {"team": team})

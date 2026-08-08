@@ -7,8 +7,10 @@ signal wait_selected
 
 const OPENING_HAND_SIZE := 5
 
-@onready var hand: HandUI = $UI/Handler/HandUi
+@onready var hand: HandUI = $UI/Handler/HandUI
 @onready var deck_ui: DeckUI = $UI/Handler/DeckUI
+@onready var draw_button: Button = $UI/Handler/Game_Panel/DrawButton
+@onready var discard_button: Button = $UI/Handler/Game_Panel/Discard
 
 var player: Player
 var selected_piece: Vector2
@@ -48,6 +50,8 @@ func _ready() -> void:
 			player = Player.new(0)
 		hand.set_player(player)
 		hand.set_deck_ui(deck_ui)
+		draw_button.disabled = true
+		discard_button.disabled = true
 		board.setup_initial_pieces()
 
 func _process(_delta: float) -> void:
@@ -97,9 +101,8 @@ func begin_turn_for_player(active_player: Player) -> void:
 			hand.refresh()
 	else:
 		battle_started = true
-
-func check_for_win_condition() -> void:
-	print("checking for winner")
+	draw_button.disabled = false
+	discard_button.disabled = false
 
 func _on_unit_moved(unit: Unit, from_cell: Vector2i, to_cell: Vector2i) -> void:
 	if game_over:

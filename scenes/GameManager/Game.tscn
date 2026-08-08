@@ -74,13 +74,15 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="SideButton" type="Button" parent="UI/Handler/Game_Panel" unique_id=1087994321]
-layout_mode = 0
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -20.0
-offset_top = 8.0
-offset_right = 4.0
-offset_bottom = 40.0
+offset_left = -44.0
+offset_top = 7.0
+offset_bottom = 39.0
+grow_horizontal = 0
 theme_override_font_sizes/font_size = 8
 text = "Minimize"
 
@@ -103,12 +105,12 @@ text = "Discard
 
 [node name="DeckUI" parent="UI/Handler" unique_id=2032052195 instance=ExtResource("6_t2bjm")]
 layout_mode = 0
-offset_left = 118.0
-offset_top = 400.0
-offset_right = 318.0
-offset_bottom = 678.0
+offset_left = 142.0
+offset_top = 405.0
+offset_right = 210.0
+offset_bottom = 507.0
 
-[node name="HandUi" parent="UI/Handler" unique_id=587290287 instance=ExtResource("5_jqg0t")]
+[node name="HandUI" parent="UI/Handler" unique_id=587290287 instance=ExtResource("5_jqg0t")]
 layout_mode = 1
 anchors_preset = -1
 anchor_top = 1.0

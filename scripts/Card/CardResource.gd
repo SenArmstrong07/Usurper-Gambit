@@ -6,6 +6,7 @@ class_name Card
 @export var mana_cost: int = 0
 @export var card_theme: CardTheme
 @export var play_conditions: Array[String] = []
+@export var effects: Array[BaseEffect] = []
 enum TargetType
 {
 NONE,

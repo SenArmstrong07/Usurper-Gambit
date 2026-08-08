@@ -20,6 +20,7 @@ var last_action_has_moved: bool = false
 @onready var chess_board: TileMapLayer = $chessBoard
 @onready var highlight_markers: Node2D = $HighlightMarkers
 @onready var _tooltip: TooltipUI = $TooltipLayer/Tooltip
+
 var throne_manager: ThroneManager = null
 var players: Array[Player] = []
 const Battle_Scene = preload("res://scenes/GameManager/Battle/BattleScene.tscn")
@@ -1113,7 +1114,7 @@ func check_game_state() -> void:
 	pending_attack_targets.clear()
 	selected_unit = null
 	clear_highlights()
-	# Announce the new phase via EventBannerManager if present
+	# Announce the new turn via EventBannerManager if present
 	var banner_mgr = get_tree().get_root().get_node_or_null("Game/UI/EventBannerManager")
 	if banner_mgr and banner_mgr.has_method("announce_type"):
-		banner_mgr.announce_type(banner_mgr.BannerType.PHASE, {"team": current_turn})
+		banner_mgr.announce_type(banner_mgr.BannerType.TURN, {"team": current_turn})

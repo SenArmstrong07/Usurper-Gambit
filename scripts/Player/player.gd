@@ -115,6 +115,12 @@ func discard_card(card: Card) -> void:
 		card_discarded.emit(card)
 		hand_changed.emit()
 
+#Helper to discard cards based off of the amount instead of the card itself
+func discard_at_random(amount: int) -> void:
+	for i in range(min(amount, hand.size())):
+		var random_card_idx := randi_range(0, hand.size() - 1)
+		discard_card(hand[random_card_idx])
+
 func shuffle_deck() -> void:
 	if deck == null:
 		initialize_deck()

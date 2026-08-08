@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b8ao0sdxq77hi" path="res://scripts/UI/event_banner.gd" id="1_lcvlc"]
 
-[node name="PhaseBanner" type="Node2D" unique_id=1823111581]
+[node name="TurnBanner" type="Node2D" unique_id=1823111581]
 script = ExtResource("1_lcvlc")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=441225102]

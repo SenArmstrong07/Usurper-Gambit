@@ -22,11 +22,6 @@ func _initialize_panel() -> void:
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	moves_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	moves_list_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	side_button.anchor_left = 0.0
-	side_button.anchor_top = 0.0
-	side_button.anchor_right = 0.0
-	side_button.anchor_bottom = 0.0
-	side_button.custom_minimum_size = Vector2(32, 32)
 	side_button.z_index = 10
 	side_button.text = "Minimize"
 	visible_x = position.x
@@ -101,10 +96,3 @@ func _update_button_position(panel_x: float = -1.0) -> void:
 	var button_width: float = side_button.custom_minimum_size.x
 	if button_width <= 0.0:
 		button_width = side_button.size.x
-	if is_hidden:
-		button_x = get_viewport().get_visible_rect().size.x - button_width - 8.0
-	else:
-		if panel_x < 0.0:
-			panel_x = position.x
-		button_x = panel_x + panel_width - button_width * 0.5
-	side_button.position = Vector2(button_x, 8.0)
