@@ -26,6 +26,17 @@ func _process(delta: float) -> void:
 func get_damage_amount() -> int:
 	return damage
 
+func modify_stat(modifier: ModifyStatEffect.Modifier, amount: float) -> void:
+	match modifier:
+		ModifyStatEffect.Modifier.ADD:
+			current_atk += amount
+
+		ModifyStatEffect.Modifier.SUBTRACT:
+			current_atk -= amount
+
+		ModifyStatEffect.Modifier.MULTIPLY:
+			current_atk *= amount
+
 func can_attack(target: Unit) -> bool:
 	return target != null and target.is_alive()
 

@@ -13,7 +13,7 @@ signal banner_finished
 
 enum BannerType {
 	TURN,
-	PHASE,
+	PHASE_ROYAL_ASSIGNMENT,
 	PIECE_DEATH,
 	BATTLE_OVER
 }
@@ -50,6 +50,8 @@ func _build_banner_for_type(btype: int, data: Dictionary) -> Dictionary:
 			var team = data.get("team", null)
 			var name = "White" if team == 0 else "Black"
 			return {"title": "%s Turn" % name, "subtitle": data.get("subtitle", "")}
+		BannerType.PHASE_ROYAL_ASSIGNMENT:
+			return {"title": "Choose Your Monarch", "subtitle": "Select one of your pieces to be your royalty."}
 		BannerType.PIECE_DEATH:
 			var victim: Variant = data.get("victim", null)
 			var killer: Variant = data.get("killer", null)

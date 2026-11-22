@@ -10,12 +10,24 @@ var target_cell: Vector2i
 
 var board: Board
 var game: Game
-
+var player: Player
 var card: Card
 
 func _ready() -> void:
 	pass # Replace with function body.
 
+
+func _init(
+	game_ref: Game = null,
+	board_ref: Board = null,
+	player_ref: Player = null,
+	card_ref: Card = null
+	) -> void:
+		game = game_ref
+		board = board_ref
+		player = player_ref
+		card = card_ref
+	
 
 func _process(delta: float) -> void:
 	pass

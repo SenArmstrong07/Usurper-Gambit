@@ -839,6 +839,11 @@ func begin_royal_assignment() -> void:
 	current_turn = 0
 	board_state = BoardState.AWAITING_ROYAL_ASSIGNMENT
 	royal_assignment_active = true
+	var banner_mgr = get_tree().get_root().get_node_or_null("Game/UI/EventBannerManager")
+	if banner_mgr == null:
+		banner_mgr = get_tree().get_root().get_node_or_null("/root/Game/UI/EventBannerManager")
+	if banner_mgr != null and banner_mgr.has_method("announce_type"):
+		banner_mgr.announce_type(banner_mgr.BannerType.PHASE_ROYAL_ASSIGNMENT)
 	if royal_assignment_controller != null:
 		royal_assignment_controller.start_assignment(current_turn)
 	else:
@@ -903,13 +908,6 @@ func finalize_royal_assignment() -> void:
 		banner_mgr = get_tree().get_root().get_node_or_null("/root/Game/UI/EventBannerManager")
 	if banner_mgr != null and banner_mgr.has_method("_on_royal_assignment_finished"):
 		banner_mgr.call_deferred("_on_royal_assignment_finished", current_turn)
-
-
-func show_assignment_overlay() -> void:
-	pass
-
-func hide_assignment_overlay() -> void:
-	pass
 
 func show_assignment_highlight(unit: Unit) -> void:
 	if royal_assignment_controller != null:
@@ -1069,36 +1067,6 @@ func end_game(winning_team: int) -> void:
 	deselect()
 	clear_highlights()
 	SignalBus.game_over.emit(winning_team)
-
-# Check if the king is in checkmate
-# DEPRECATED (FOR NOW) since we're using a simpler victory condition based on throne capture. Keeping this for potential future use.
-func is_king_in_checkmate(team: int) -> bool:
-	if not is_king_in_check(team):
-		return false
-	
-	# King is in check; check if there are any valid moves
-	for unit in units.get_children():
-		if not (unit is Unit) or unit.team != team:
-			continue
-		var valid_moves : Array[Vector2i] = unit.get_valid_moves(self)
-		if valid_moves.size() > 0:
-			return false
-	
-	return true
-
-# Check if the team is in stalemate
-func is_team_in_stalemate(team: int) -> bool:
-	if is_king_in_check(team):
-		return false
-	
-	for unit in units.get_children():
-		if not (unit is Unit) or unit.team != team:
-			continue
-		var valid_moves : Array[Vector2i] = unit.get_valid_moves(self)
-		if valid_moves.size() > 0:
-			return false
-	
-	return true
 
 # Check game state after a move or combat action.
 func check_game_state() -> void:

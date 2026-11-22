@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="The-Usurper's-Gambit"
+run/main_scene="uid://cvil8xyt03i3m"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 

@@ -28,6 +28,21 @@ func kill() -> void:
 	if unit != null:
 		unit.die()
 
+	
+func modify_stat(modifier: ModifyStatEffect.Modifier, amount: float) -> void:
+	match modifier:
+		ModifyStatEffect.Modifier.ADD:
+			print("+HP")
+			MAX_HEALTH += amount
+
+		ModifyStatEffect.Modifier.SUBTRACT:
+			print("-HP")
+			MAX_HEALTH -= amount
+
+		ModifyStatEffect.Modifier.MULTIPLY:
+			print("*HP")
+			MAX_HEALTH *= amount
+
 func revive() -> void:
 	health = MAX_HEALTH
 
