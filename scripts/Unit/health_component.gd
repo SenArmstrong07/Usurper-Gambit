@@ -51,3 +51,6 @@ func is_alive() -> bool:
 
 func get_current_health() -> float:
 	return health
+	
+func is_damaged() -> bool:
+	return get_current_health() < MAX_HEALTH

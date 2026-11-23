@@ -323,6 +323,14 @@ func get_health_component() -> HealthComponent:
 	var health_node := get_node_or_null("HealthComponent") as HealthComponent
 	return health_node
 
+func is_damaged() -> bool:
+	var health := get_health_component()
+
+	if health == null:
+		return false
+
+	return health.is_damaged()
+
 func get_status_component() -> StatusComponent:
 	var status_node := get_node_or_null("StatusComponent") as StatusComponent
 	return status_node

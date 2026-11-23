@@ -13,10 +13,6 @@ var game: Game
 var player: Player
 var card: Card
 
-func _ready() -> void:
-	pass # Replace with function body.
-
-
 func _init(
 	game_ref: Game = null,
 	board_ref: Board = null,
@@ -28,6 +24,3 @@ func _init(
 		player = player_ref
 		card = card_ref
 	
-
-func _process(delta: float) -> void:
-	pass

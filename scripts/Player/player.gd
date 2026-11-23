@@ -43,9 +43,9 @@ func _create_default_deck_resource() -> DeckResource:
 	resource.deck_name = "Starter Deck"
 	resource.opening_hand_size = 5
 	resource.starting_cards = []
-	var card_resource := load("res://scripts/Card/PromotionCard.tres") as Card
+	var card_resource := load("res://scripts/Card/HealCard.tres") as Card
 	if card_resource != null:
-		for i in range(5):
+		for i in range(opening_hand_size):
 			resource.starting_cards.append(card_resource)
 	return resource
 
@@ -86,6 +86,14 @@ func mark_royal_defeated() -> void:
 func draw_card() -> Card:
 	if deck == null:
 		initialize_deck()
+		
+	if not can_draw_card():
+		print("Hand is full!")
+		return
+		
+	if deck.is_empty():
+		print("No cards left in deck!")
+		return
 
 	var card := deck.draw()
 	if card != null:
@@ -100,9 +108,15 @@ func draw_card() -> Card:
 
 func draw_opening_hand() -> void:
 	for i in range(opening_hand_size):
-		if hand.size() >= hand_size_limit:
+		if is_hand_full():
 			break
 		draw_card()
+
+func can_draw_card() -> bool:
+	return hand.size() < hand_size_limit
+
+func is_hand_full() -> bool:
+	return hand.size() >= hand_size_limit
 
 func discard_card(card: Card) -> void:
 	if card == null:

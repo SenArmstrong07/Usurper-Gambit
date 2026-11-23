@@ -93,7 +93,10 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	pass
 
-func _on_gameplay_effect_triggered(effect_name: String, context: Dictionary) -> void:
+func _on_gameplay_effect_triggered(effect_name: String, context: EffectContext) -> void:
+	if context == null:
+		return
+	
 	match effect_name:
 		"promote_pawn":
 			print("Board received gameplay effect: promote this pawn.")
@@ -101,6 +104,8 @@ func _on_gameplay_effect_triggered(effect_name: String, context: Dictionary) -> 
 			print("Board received gameplay effect: move this unit.")
 		"spawn_trap":
 			print("Board received gameplay effect: spawn trap here.")
+		"heal_unit":
+			print("Board received gameplay effect: heal target unit.")
 		_:
 			print("Board received gameplay effect: ", effect_name)
 

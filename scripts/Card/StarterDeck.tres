@@ -1,12 +1,11 @@
-[gd_resource type="Resource" script_class="DeckResource" format=3 uid="uid://starterdeckresource"]
+[gd_resource type="Resource" script_class="DeckResource" format=3 uid="uid://d1rttsagpo6i7"]
 
 [ext_resource type="Script" uid="uid://boytdko1e84pj" path="res://scripts/Card/DeckResource.gd" id="1_abc123"]
 [ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/CardResource.gd" id="2_abc123"]
+[ext_resource type="Resource" uid="uid://ccmr7bp4s421n" path="res://scripts/Card/HealCard.tres" id="3_0omlk"]
 [ext_resource type="Resource" uid="uid://bmnga5yecarsm" path="res://scripts/Card/PromotionCard.tres" id="3_abc123"]
 
 [resource]
 script = ExtResource("1_abc123")
-deck_name = "Starter Deck"
-opening_hand_size = 5
-starting_cards = Array[ExtResource("2_abc123")]([ExtResource("3_abc123"), ExtResource("3_abc123"), ExtResource("3_abc123"), ExtResource("3_abc123"), ExtResource("3_abc123")])
+starting_cards = Array[ExtResource("2_abc123")]([ExtResource("3_0omlk"), ExtResource("3_0omlk"), ExtResource("3_abc123"), ExtResource("3_0omlk"), ExtResource("3_abc123")])
 metadata/_custom_type_script = "uid://boytdko1e84pj"

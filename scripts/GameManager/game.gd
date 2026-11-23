@@ -60,6 +60,7 @@ func _ready() -> void:
 		hand.set_deck_ui(deck_ui)
 		draw_button.disabled = true
 		discard_button.disabled = true
+		hand_toggle_button.disabled = true
 		board.setup_initial_pieces()
 
 func _process(_delta: float) -> void:
@@ -100,13 +101,19 @@ func start_battle() -> void:
 	begin_turn_for_player(board.get_player(current_player))
 	update_ui()
 
+func get_active_player() -> Player:
+	if board == null:
+		return null
+
+	return board.get_player(board.current_turn)
+
 func begin_turn_for_player(active_player: Player) -> void:
 	if active_player == null:
 		return
-	if battle_started:
-		active_player.begin_turn()
-	else:
-		battle_started = true
+
+	battle_started = true
+	active_player.begin_turn()
+
 	draw_button.disabled = false
 	discard_button.disabled = false
 
@@ -144,6 +151,11 @@ func _on_round_started(team: int) -> void:
 	if board == null:
 		return
 	var active_player := board.get_player(team)
+	if active_player == null:
+		return
+
+	player = active_player
+	#hand.set_player(player) - Commenting this out because we are implementing online multiplayer first
 	begin_turn_for_player(active_player)
 	update_ui()
 
@@ -322,74 +334,180 @@ func update_ui() -> void:
 	elif board != null and board.game_over:
 		status_label.text = "The throne has been claimed."
 
-func validate_card_play(card: Card, mouse_pos: Vector2) -> bool:
-	if game_over or card == null or player == null or board == null:
-		return false
-	if not player.hand.has(card):
-		return false
-	if player.current_mana < card.mana_cost:
-		return false
-	if current_player != player.team:
+func is_targetless_card(card: Card) -> bool:
+	return card.target_type in [
+		Card.TargetType.NONE,
+		Card.TargetType.SELF,
+		Card.TargetType.ALL_ALLIES,
+		Card.TargetType.ALL_ENEMIES
+	]
+
+func validate_card_play(card: Card, context: EffectContext) -> bool:
+	if game_over or card == null or context == null:
 		return false
 
-	var target_cell := board.world_to_grid(mouse_pos)
-	if not board.is_within_bounds(target_cell):
-		return false
-	var target_unit := board.get_unit_at(target_cell)
-
-	if card.has_play_condition("requires_pawn") and target_unit != null and target_unit.piece_type.to_lower() != "pawn":
-		return false
-	if card.has_play_condition("requires_ally") and target_unit != null and target_unit.team != player.team:
-		return false
-	if card.has_play_condition("requires_enemy") and target_unit != null and target_unit.team == player.team:
-		return false
-	if card.has_play_condition("requires_empty_cell") and target_unit != null:
-		return false
-	if card.has_play_condition("requires_damaged_unit") and target_unit != null and target_unit.is_alive():
-		return false
-	if card.has_play_condition("requires_promotion_candidate") and target_unit != null and target_unit.piece_type.to_lower() != "pawn":
+	if board == null:
 		return false
 
-	var allowed_targets := board.get_valid_card_targets(card, player)
-	if allowed_targets.is_empty():
-		return card.target_type == Card.TargetType.NONE
-	return allowed_targets.has(target_cell)
+	var active_player := get_active_player()
+
+	if active_player == null:
+		return false
+
+	# Make sure this is the active player's card.
+	if context.player != active_player:
+		return false
+
+	if not active_player.hand.has(card):
+		return false
+
+	# Check mana.
+	if active_player.current_mana < card.mana_cost:
+		return false
+
+	# Check target bounds for cell-targeted cards.
+	if not is_targetless_card(card):
+		if not board.is_within_bounds(context.target_cell):
+			return false
+		print("Checking target type:", card.target_type)
+		print("Checking target cell:", context.target_cell)
+
+		# Check whether the selected cell is a legal target.
+		var allowed_targets := board.get_valid_card_targets(card, active_player)
+		print("Allowed targets:", allowed_targets)
+		
+		if not allowed_targets.has(context.target_cell):
+			return false
+
+	# Check card-specific conditions.
+	if not validate_play_conditions(card, context):
+		return false
+
+	# Finally, validate every effect.
+	return card.can_execute(context)
+
+func validate_play_conditions(card: Card, context: EffectContext) -> bool:
+	for condition in card.play_conditions:
+		match condition.strip_edges().to_lower():
+
+			"requires_pawn":
+				if context.target_unit == null:
+					print("FAILED requires_pawn: Target is null.")
+					return false
+				if context.target_unit.piece_type.to_lower() != "pawn":
+					print("FAILED requires_pawn: Target is not a pawn.")
+					return false
+
+			"requires_ally":
+				if context.target_unit == null:
+					print("FAILED requires_ally: Target is null.")
+					return false
+				if context.target_unit.team != context.player.team:
+					return false
+
+			"requires_enemy":
+				if context.target_unit == null:
+					print("FAILED requires_enemy: Target is null.")
+					return false
+				if context.target_unit.team == context.player.team:
+					return false
+
+			"requires_empty_cell":
+				if context.target_unit != null:
+					print("FAILED requires_empty_cell: Target is null.")
+					return false
+
+			"requires_damaged_unit":
+				if context.target_unit == null:
+					print("FAILED requires_damaged_unit: Target is null.")
+					return false
+				if not context.target_unit.is_damaged():
+					return false
+
+			"requires_promotion_candidate":
+				if context.target_unit == null:
+					print("FAILED requires_promotion_candidate: Target is null.")
+					return false
+				if not context.target_unit.can_be_promoted():
+					return false
+
+			_:
+				push_warning("Unknown card play condition: " + condition)
+				return false
+
+	return true
+
+func _create_effect_context(card: Card, target_cell: Vector2i, target_unit: Unit, owner_player: Player) -> EffectContext:
+	var context := EffectContext.new(
+		self,
+		board,
+		owner_player,
+		card
+	)
+	context.owner_player = owner_player
+	context.target_cell = target_cell
+	context.target_unit = target_unit
+	return context
 
 func _on_hand_card_requested(card: Card, mouse_pos: Vector2) -> void:
 	if game_over:
 		return
-	if player == null or card == null:
+	if player == null or card == null or board == null:
+		print("FAILED: Player, card, or board is null.")
 		return
-	if not player.hand.has(card):
-		return
-	if not validate_card_play(card, mouse_pos):
-		if board != null:
-			board.clear_highlights()
+		
+	print("Card:", card.card_name)
+	print("Mana:", player.current_mana, "/", card.mana_cost)
+	print("Player team:", player.team)
+	print("Current turn:", current_player)
+	
+	#get current player and show highlights if the card is valid
+	var active_player := get_active_player()
+	if active_player == null:
 		return
 	if board != null:
-		board.show_card_target_highlights(card, player)
-	if not player.spend_mana(card.mana_cost):
-		return
+		board.show_card_target_highlights(card, active_player)
 
-	player.discard_card(card)
 	print("Game accepted card play request for: ", card.card_name)
+	
+	#Create context first, then validate the card play
+	var board_mouse_pos: Vector2 = board.get_global_mouse_position()
+	var target_cell: Vector2i = board.world_to_grid(board_mouse_pos)
+	var target_unit: Unit = board.get_unit_at(target_cell)
 
-	card.play({
-		"player": player,
-		"game": self,
-		"board": board,
-		"target_cell": board.world_to_grid(mouse_pos)
-	})
+	print("Target cell:", target_cell)
+	print("Target unit:", target_unit)
+	print("Cell occupied:", board.is_cell_occupied(target_cell))
+	print("All occupied cells:", board.occupied_cells)
+	
+	var context := _create_effect_context(card, target_cell, target_unit, active_player)
 
-	if board != null:
+	#validate everything about the card play, before spending resources
+	if not validate_card_play(card, context):
+		print("FAILED: validate_card_play() returned false.")
 		board.clear_highlights()
+		return
+
+	print("SUCCESS: Card validation passed!")
+
+	print("\nAttempting to spend mana...")
+	if not active_player.spend_mana(card.mana_cost):
+		board.clear_highlights()
+		return
+
+
+	active_player.discard_card(card)
+	
+	card.play(context)
+
+	board.clear_highlights()
 	update_ui()
 
 func _on_draw_button_pressed() -> void:
-	print("Hand size:", player.hand.size())
-	print("UI children:", hand.card_container.get_child_count())
 	if player == null:
 		return
+	print("Hand size:", player.hand.size())
+	print("UI children:", hand.card_container.get_child_count())
 	var active_player := board.get_player(current_player) if board != null else player
 	if active_player == null or current_player != active_player.team:
 		return
