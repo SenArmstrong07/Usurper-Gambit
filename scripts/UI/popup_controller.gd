@@ -9,11 +9,15 @@ func show_for(unit: Node2D, can_move: bool, can_attack: bool, undo_available: bo
 	var popup := ActionPopupScene.instantiate() as Window
 	if popup == null:
 		return
+	popup.exclusive = false
 	get_tree().get_root().add_child(popup)
 	popup.configure(can_move, can_attack, message, first_text, second_text, undo_text, undo_available)
-	popup.wait_selected.connect(on_wait)
-	popup.attack_selected.connect(on_attack)
-	popup.undo_selected.connect(on_undo)
+	if on_wait.is_valid():
+		popup.wait_selected.connect(on_wait)
+	if on_attack.is_valid():
+		popup.attack_selected.connect(on_attack)
+	if on_undo.is_valid():
+		popup.undo_selected.connect(on_undo)
 	_position_popup(popup, unit)
 	current_popup = popup
 
@@ -28,7 +32,10 @@ func _remove_existing_action_popup() -> void:
 			child.queue_free()
 
 func _position_popup(popup: Window, anchor_unit: Node2D) -> void:
-	if popup == null or anchor_unit == null:
+	if popup == null:
+		return
+	if anchor_unit == null:
+		popup.popup_centered()
 		return
 	var popup_size := popup.size
 	var anchor_position := anchor_unit.global_position

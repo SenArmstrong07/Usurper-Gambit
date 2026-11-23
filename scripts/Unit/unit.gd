@@ -71,6 +71,12 @@ func _input(event: InputEvent) -> void:
 	if board == null:
 		return
 
+	if get_viewport().gui_get_hovered_control() is CardUI:
+		return
+
+	if board.piece_action_completed:
+		return
+
 	print("[Unit._input] clicked unit", self.get_name(), "team", team, "board_state", board.board_state)
 
 	if board.has_method("is_royal_assignment_active") and board.is_royal_assignment_active():

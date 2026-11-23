@@ -98,7 +98,7 @@ func _process_queue() -> void:
 		emit_signal("banner_started")
 	if _delay_after_battle:
 		_delay_after_battle = false
-		await get_tree().create_timer(1.5).timeout
+		await get_tree().create_timer(0.5).timeout
 	var item = _queue.pop_front()
 	var banner: Node2D = null
 	if item.has("scene"):

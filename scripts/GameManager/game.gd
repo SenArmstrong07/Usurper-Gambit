@@ -11,6 +11,7 @@ const OPENING_HAND_SIZE := 5
 @onready var deck_ui: DeckUI = $UI/Handler/DeckUI
 @onready var draw_button: Button = $UI/Handler/Game_Panel/DrawButton
 @onready var discard_button: Button = $UI/Handler/Game_Panel/Discard
+@onready var hand_toggle_button: Button = $UI/Handler/Game_Panel/HandToggle
 
 var player: Player
 var selected_piece: Vector2
@@ -25,6 +26,8 @@ var reset_button: Button
 var game_over: bool = false
 var preparation_complete: bool = false
 var battle_started: bool = false
+var _banner_active: bool = false
+var _must_discard_for_hand_limit: bool = false
 
 func _ready() -> void:
 	board = get_node_or_null("Board") as Board
@@ -34,14 +37,19 @@ func _ready() -> void:
 		banner_mgr.banner_started.connect(_on_banner_started)
 		banner_mgr.banner_finished.connect(_on_banner_finished)
 	SignalBus.turn_wait_confirmed.connect(_on_turn_wait_confirmed)
+	SignalBus.round_ended.connect(_on_round_ended)
+	SignalBus.round_started.connect(_on_round_started)
 	SignalBus.move_history_undone.connect(_on_move_history_undone)
 	SignalBus.game_over.connect(_on_game_over)
 	SignalBus.royal_assignment_finished.connect(_on_royal_assignment_finished)
 	SignalBus.royal_defeated.connect(_on_royal_defeated)
 	SignalBus.piece_defeated.connect(_on_piece_defeated)
 	hand.card_requested.connect(_on_hand_card_requested)
+	hand.card_selected.connect(_on_hand_card_selected)
 	hand.opening_draw_started.connect(_on_opening_draw_started)
 	hand.opening_draw_completed.connect(_on_opening_draw_completed)
+	if hand_toggle_button != null:
+		hand_toggle_button.pressed.connect(_on_hand_toggle_pressed)
 	_history_panel_setup()
 	add_ui()
 	if board != null:
@@ -97,8 +105,6 @@ func begin_turn_for_player(active_player: Player) -> void:
 		return
 	if battle_started:
 		active_player.begin_turn()
-		if active_player == player and hand != null:
-			hand.refresh()
 	else:
 		battle_started = true
 	draw_button.disabled = false
@@ -115,6 +121,52 @@ func _on_turn_wait_confirmed(unit: Unit, from_cell: Vector2i, to_cell: Vector2i)
 	var notation := format_move(unit, from_cell, to_cell)
 	history_panel.add_move(notation)
 	update_ui()
+
+func _on_round_ended(team: int) -> void:
+	if game_over or player == null or team != player.team:
+		return
+	if player.hand.size() < player.hand_size_limit:
+		return
+	_must_discard_for_hand_limit = true
+	if board != null:
+		board.defer_turn_transition()
+	hand.set_card_selection_mode(true)
+	hand.set_hidden(false)
+	if hand_toggle_button != null:
+		hand_toggle_button.text = "Hide Cards"
+		hand_toggle_button.disabled = true
+	discard_button.disabled = true
+	status_label.text = "Choose a card to discard before the next turn."
+	if board != null:
+		board.set_input_locked(true)
+
+func _on_round_started(team: int) -> void:
+	if board == null:
+		return
+	var active_player := board.get_player(team)
+	begin_turn_for_player(active_player)
+	update_ui()
+
+func _on_hand_card_selected(card: Card) -> void:
+	if not _must_discard_for_hand_limit or player == null or not player.hand.has(card):
+		return
+	player.discard_card(card)
+	if player.hand.size() >= player.hand_size_limit:
+		status_label.text = "Choose another card to discard before the next turn."
+		return
+
+	_must_discard_for_hand_limit = false
+	hand.set_card_selection_mode(false)
+	discard_button.disabled = false
+	if hand_toggle_button != null:
+		hand_toggle_button.disabled = false
+	if status_label.text.begins_with("Choose a card"):
+		status_label.text = ""
+	if board != null:
+		board.resume_turn_transition()
+	update_ui()
+	if board != null:
+		board.set_input_locked(_banner_active)
 
 func _on_move_history_undone() -> void:
 	if game_over:
@@ -173,12 +225,14 @@ func _on_opening_draw_completed() -> void:
 		banner_mgr.set_hold_phase_banner(false)
 
 func _on_banner_started() -> void:
+	_banner_active = true
 	if board != null:
 		board.set_input_locked(true)
 
 func _on_banner_finished() -> void:
+	_banner_active = false
 	if board != null:
-		board.set_input_locked(false)
+		board.set_input_locked(_must_discard_for_hand_limit)
 
 func _on_reset_pressed() -> void:
 	reset_button.visible = false
@@ -345,3 +399,7 @@ func _on_discard_pressed() -> void:
 	if player == null or player.hand.is_empty():
 		return
 	player.discard_card(player.hand[-1])
+
+func _on_hand_toggle_pressed() -> void:
+	var hidden := hand.toggle_hidden()
+	hand_toggle_button.text = "Show Cards" if hidden else "Hide Cards"

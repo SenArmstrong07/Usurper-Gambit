@@ -30,14 +30,35 @@ var is_dragging: bool = false
 var dragging_offset := Vector2.ZERO
 var default_z_index: int = 0
 var base_position: Vector2 = Vector2.ZERO
+var discard_highlight: Panel
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	self.mouse_filter = Control.MOUSE_FILTER_STOP
 	self.pivot_offset = SIZE / 2.0
 	_set_children_mouse_filter(self)
+	_setup_discard_highlight()
 	default_z_index = z_index
 	base_position = position
+
+func _setup_discard_highlight() -> void:
+	discard_highlight = Panel.new()
+	discard_highlight.name = "DiscardHighlight"
+	discard_highlight.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	discard_highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	discard_highlight.z_index = 100
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_color = Color(1, 0.1, 0.1, 1)
+	style.set_border_width_all(6)
+	style.set_corner_radius_all(4)
+	discard_highlight.add_theme_stylebox_override("panel", style)
+	discard_highlight.visible = false
+	add_child(discard_highlight)
+
+func set_discard_highlight(enabled: bool) -> void:
+	if discard_highlight != null:
+		discard_highlight.visible = enabled
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.

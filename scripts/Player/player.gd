@@ -18,7 +18,7 @@ var hand: Array[Card] = []
 var mana: int = 0
 var current_mana: int = 0
 var max_mana: int = 0
-var hand_size_limit: int = 7
+var hand_size_limit: int = 5
 var opening_hand_size: int = 5
 var suppress_hand_changed: bool = false
 

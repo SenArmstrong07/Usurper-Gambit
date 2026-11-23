@@ -35,6 +35,7 @@ var pending_battle_defender: Unit = null
 var pending_history_actions: Array = []
 var piece_move_pending: bool = false
 var piece_action_completed: bool = false
+var turn_transition_pending: bool = false
 var royal_assignment_active: bool = false
 
 const HighlightManagerScene = preload("res://scripts/UI/highlight_manager.gd")
@@ -105,9 +106,11 @@ func _on_gameplay_effect_triggered(effect_name: String, context: Dictionary) -> 
 
 #Mouse Handlers
 func _input(event: InputEvent) -> void:
-	if input_locked or game_over or board_state == BoardState.COMBAT:
+	if input_locked or game_over or board_state == BoardState.COMBAT or piece_action_completed:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if get_viewport().gui_get_hovered_control() is CardUI:
+			return
 		var local_mouse_pos := chess_board.get_local_mouse_position()
 		var clicked_cell := chess_board.local_to_map(local_mouse_pos)
 		
@@ -118,6 +121,8 @@ func _input(event: InputEvent) -> void:
 		print("[Board._input] handle_click returned")
 
 func handle_click(cell: Vector2i) -> void:
+	if piece_action_completed:
+		return
 	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
 		var unit := get_unit_at(cell)
 		if unit != null and unit.team == current_turn:
@@ -175,7 +180,7 @@ func handle_click(cell: Vector2i) -> void:
 
 func select_unit(unit: Unit) -> void:
 	# Do not allow normal selection during the royal assignment phase
-	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
+	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT or piece_action_completed:
 		return
 	if unit.team != current_turn:
 		return
@@ -190,7 +195,7 @@ func select_unit(unit: Unit) -> void:
 		board_state = BoardState.AWAITING_ACTION
 		var can_move := move_targets.size() > 0
 		if action_popup_controller != null:
-			action_popup_controller.show_for(unit, can_move, true, can_undo_last_action(), Callable(self, "_on_selection_move"), Callable(self, "_on_selection_attack"), Callable(self, "_on_action_undo"), "Move or attack?", "Move", "Attack", "Undo")
+			action_popup_controller.show_for(unit, can_move, true, can_undo_last_action(), Callable(self, "_on_selection_move"), Callable(self, "_on_selection_attack"), Callable(self, "_on_action_undo"), "Play cards, then move or attack.", "Move", "Attack", "Undo")
 
 func deselect() -> void:
 	selected_unit = null
@@ -201,7 +206,7 @@ func clear_highlights() -> void:
 		highlight_manager.clear()
 
 func _on_unit_dropped(unit: Unit, cell: Vector2i) -> void:
-	if game_over or board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
+	if game_over or board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT or piece_action_completed:
 		unit.position = chess_board.map_to_local(unit.grid_pos)
 		deselect()
 		return
@@ -282,6 +287,9 @@ func clear_board() -> void:
 	occupied_cells.clear()
 	selected_unit = null
 	dragging_unit = null
+	piece_move_pending = false
+	piece_action_completed = false
+	turn_transition_pending = false
 	for player in players:
 		if player != null:
 			player.clear_royal_unit()
@@ -541,7 +549,7 @@ func request_post_move_action(unit: Unit) -> void:
 			can_attack = true
 			break
 	if action_popup_controller != null:
-		action_popup_controller.show_for(unit, true, can_attack, can_undo_last_action(), Callable(self, "_on_action_wait"), Callable(self, "_on_action_attack"), Callable(self, "_on_action_undo"), "Wait or attack?", "Wait", "Attack", "Undo")
+		action_popup_controller.show_for(unit, true, can_attack, can_undo_last_action(), Callable(self, "_on_action_wait"), Callable(self, "_on_action_attack"), Callable(self, "_on_action_undo"), "Play cards, then wait or attack.", "Wait", "Attack", "Undo")
 func undo_last_action() -> void:
 	if not can_undo_last_action():
 		return
@@ -713,11 +721,7 @@ func _on_battle_resolved(result: String) -> void:
 	var attacker := pending_battle_attacker if pending_battle_attacker != null and is_instance_valid(pending_battle_attacker) else null
 	var defender := pending_battle_defender if pending_battle_defender != null and is_instance_valid(pending_battle_defender) else null
 	handle_combat_result(attacker, defender, result)
-	# When a battle finishes and the attacker is the current player, ensure any pending actions
-	# (including this attack) are recorded — if this ends the turn without an explicit Wait.
 	if attacker != null and attacker.team == current_turn:
-		# Ensure the attack action is present (it should already have been appended in show_battle_overlay)
-		# Emit all pending actions as the turn is effectively ending
 		for action in pending_history_actions:
 			if action.has("unit"):
 				SignalBus.turn_wait_confirmed.emit(action["unit"], action["from"], action["to"])
@@ -727,9 +731,13 @@ func _on_battle_resolved(result: String) -> void:
 	pending_battle_attacker = null
 	pending_battle_defender = null
 	post_move_unit = null
-	board_state = BoardState.IDLE
-	check_game_state()
+	board_state = BoardState.AWAITING_ACTION
+	_refresh_unit_interaction()
 	check_victory_conditions()
+	if game_over:
+		return
+	var prompt_unit := attacker if attacker != null and attacker.is_inside_tree() else defender
+	_show_wait_prompt(prompt_unit)
 
 func _on_action_attack() -> void:
 	print("[Board._on_action_attack] post_move_unit", post_move_unit, "selected_unit", selected_unit)
@@ -753,8 +761,8 @@ func _on_action_attack() -> void:
 		post_move_unit = null
 		pending_attack_unit = null
 		pending_attack_targets.clear()
-		board_state = BoardState.IDLE
-		check_game_state()
+		board_state = BoardState.AWAITING_ACTION
+		_show_wait_prompt(attacker)
 		return
 	pending_attack_unit = attacker
 	pending_attack_targets.clear()
@@ -767,6 +775,23 @@ func _on_action_attack() -> void:
 	if attack_targets.is_empty():
 		attack_targets = pending_attack_targets
 	highlight_cells(attack_targets, true)
+
+func _show_wait_prompt(unit: Unit) -> void:
+	if action_popup_controller == null or unit == null:
+		return
+	action_popup_controller.show_for(
+		unit,
+		true,
+		false,
+		false,
+		Callable(self, "_on_action_wait"),
+		Callable(),
+		Callable(),
+		"Play cards or wait to end your turn.",
+		"Wait",
+		"Attack",
+		"Undo"
+	)
 
 func is_cell_occupied(cell: Vector2i) -> bool:
 	return occupied_cells.has(cell)
@@ -1068,10 +1093,26 @@ func end_game(winning_team: int) -> void:
 	clear_highlights()
 	SignalBus.game_over.emit(winning_team)
 
-# Check game state after a move or combat action.
+# End the active turn after its required hand-limit choice, if any.
 func check_game_state() -> void:
 	if game_over:
 		return
+	turn_transition_pending = false
+	SignalBus.round_ended.emit(current_turn)
+	if turn_transition_pending:
+		return
+	_advance_turn()
+
+func defer_turn_transition() -> void:
+	turn_transition_pending = true
+
+func resume_turn_transition() -> void:
+	if game_over or not turn_transition_pending:
+		return
+	turn_transition_pending = false
+	_advance_turn()
+
+func _advance_turn() -> void:
 	var opponent_team := 1 - current_turn
 	update_king_check_visuals()
 	current_turn = opponent_team
@@ -1082,7 +1123,4 @@ func check_game_state() -> void:
 	pending_attack_targets.clear()
 	selected_unit = null
 	clear_highlights()
-	# Announce the new turn via EventBannerManager if present
-	var banner_mgr = get_tree().get_root().get_node_or_null("Game/UI/EventBannerManager")
-	if banner_mgr and banner_mgr.has_method("announce_type"):
-		banner_mgr.announce_type(banner_mgr.BannerType.TURN, {"team": current_turn})
+	SignalBus.round_started.emit(current_turn)

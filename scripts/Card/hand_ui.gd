@@ -9,12 +9,17 @@ var player: Player = null
 var deck_ui: Control
 var _draw_queue: Array[Card] = []
 var _is_drawing_opening_hand: bool = false
+var _is_hidden: bool = false
+var _hide_tween: Tween = null
+var _card_selection_mode: bool = false
+var _refresh_queued: bool = false
 signal card_selected(card: Card)
 signal card_requested(card: Card, mouse_pos: Vector2)
 signal opening_draw_started
 signal opening_draw_completed
 @export var hand_curve: Curve
 @export var rotation_curve: Curve
+@export var hidden_y_offset := 180.0
 
 @export var max_rotation_degrees:= 5
 @export var x_sep := 10 # separation of the cards in the x axis
@@ -63,13 +68,36 @@ func set_player(new_player: Player) -> void:
 func set_deck_ui(deck: Control) -> void:
 	deck_ui = deck
 
+func toggle_hidden() -> bool:
+	set_hidden(not _is_hidden)
+	return _is_hidden
+
+func set_hidden(hidden: bool) -> void:
+	_is_hidden = hidden
+	if card_container == null:
+		return
+	if _hide_tween != null:
+		_hide_tween.kill()
+	_hide_tween = create_tween()
+	_hide_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	var target_y := hidden_y_offset if hidden else 0.0
+	_hide_tween.tween_property(card_container, "position", Vector2(card_container.position.x, target_y), 0.25)
+
+func set_card_selection_mode(enabled: bool) -> void:
+	_card_selection_mode = enabled
+	if card_container == null:
+		return
+	for child in card_container.get_children():
+		if child is CardUI:
+			child.set_discard_highlight(enabled)
+
 func _on_player_hand_changed() -> void:
 	print("HAND CHANGED SIGNAL")
 	if player == null:
 		return
 	if _is_drawing_opening_hand:
 		return
-	refresh()
+	_schedule_refresh()
 
 func _on_player_card_drawn(card: Card) -> void:
 	_draw_queue.append(card)
@@ -79,6 +107,16 @@ func _on_player_card_drawn(card: Card) -> void:
 		await _process_draw_queue()
 
 func _on_player_card_discarded(card: Card) -> void:
+	_schedule_refresh()
+
+func _schedule_refresh() -> void:
+	if _refresh_queued:
+		return
+	_refresh_queued = true
+	call_deferred("_refresh_after_hand_change")
+
+func _refresh_after_hand_change() -> void:
+	_refresh_queued = false
 	refresh()
 
 func _update_cards() -> void:
@@ -153,6 +191,9 @@ func _on_card_selected(card: Card) -> void:
 	card_selected.emit(card)
 
 func _on_card_dropped(card: Card) -> void:
+	if _card_selection_mode:
+		card_selected.emit(card)
+		return
 	print("Card dropped, requesting play for: ", card.card_name)
 	card_requested.emit(card, get_global_mouse_position())
 
@@ -169,6 +210,7 @@ func add_card_ui(card: Card) -> CardUI:
 	ui.setup(card)
 	ui.card_clicked.connect(_on_card_selected)
 	ui.card_dropped.connect(_on_card_dropped)
+	ui.set_discard_highlight(_card_selection_mode)
 
 	_update_cards()
 	if ui is CardUI:
@@ -265,6 +307,7 @@ func refresh() -> void:
 		ui.setup(card)
 		ui.card_clicked.connect(_on_card_selected)
 		ui.card_dropped.connect(_on_card_dropped)
+		ui.set_discard_highlight(_card_selection_mode)
 	print("Children after refresh:", card_container.get_child_count())
 	_update_cards()
 
