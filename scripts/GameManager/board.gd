@@ -58,6 +58,7 @@ enum BoardState {
 
 var board_state = BoardState.IDLE
 var input_locked: bool = false
+var card_targeting_active: bool = false
 
 func _ready() -> void:
 	add_to_group("Board")
@@ -82,6 +83,10 @@ func _ready() -> void:
 	print("Units scale:", units.scale)
 	SignalBus.unit_dropped.connect(_on_unit_dropped)
 	SignalBus.gameplay_effect_triggered.connect(_on_gameplay_effect_triggered)
+	if not SignalBus.card_targeting_started.is_connected(_on_card_targeting_started):
+		SignalBus.card_targeting_started.connect(_on_card_targeting_started)
+	if not SignalBus.card_targeting_ended.is_connected(_on_card_targeting_ended):
+		SignalBus.card_targeting_ended.connect(_on_card_targeting_ended)
 	clear_highlights()
 	# find EventBannerManager if present
 	var banner_mgr = get_tree().get_root().get_node_or_null("Game/UI/EventBannerManager")
@@ -111,6 +116,16 @@ func _on_gameplay_effect_triggered(effect_name: String, context: EffectContext) 
 
 #Mouse Handlers
 func _input(event: InputEvent) -> void:
+	if card_targeting_active:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			if get_viewport().gui_get_hovered_control() is CardUI:
+				return
+			var target_mouse_pos := chess_board.get_local_mouse_position()
+			var target_cell := chess_board.local_to_map(target_mouse_pos)
+			if is_within_bounds(target_cell):
+				call_deferred("_emit_targeting_cell_selected", target_cell)
+				get_viewport().set_input_as_handled()
+		return
 	if input_locked or game_over or board_state == BoardState.COMBAT or piece_action_completed:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -126,6 +141,8 @@ func _input(event: InputEvent) -> void:
 		print("[Board._input] handle_click returned")
 
 func handle_click(cell: Vector2i) -> void:
+	if card_targeting_active:
+		return
 	if piece_action_completed:
 		return
 	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT:
@@ -185,7 +202,7 @@ func handle_click(cell: Vector2i) -> void:
 
 func select_unit(unit: Unit) -> void:
 	# Do not allow normal selection during the royal assignment phase
-	if board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT or piece_action_completed:
+	if card_targeting_active or board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT or piece_action_completed:
 		return
 	if unit.team != current_turn:
 		return
@@ -211,11 +228,14 @@ func clear_highlights() -> void:
 		highlight_manager.clear()
 
 func _on_unit_dropped(unit: Unit, cell: Vector2i) -> void:
+	if unit == null:
+		return
+	if card_targeting_active:
+		unit.position = chess_board.map_to_local(unit.grid_pos)
+		return
 	if game_over or board_state == BoardState.AWAITING_ROYAL_ASSIGNMENT or piece_action_completed:
 		unit.position = chess_board.map_to_local(unit.grid_pos)
 		deselect()
-		return
-	if unit == null:
 		return
 	if unit.team != current_turn:
 		unit.position = chess_board.map_to_local(unit.grid_pos)
@@ -261,6 +281,18 @@ func show_card_target_highlights(card: Card, acting_player: Player = null) -> vo
 		clear_highlights()
 		return
 	highlight_cells(targets)
+
+func _on_card_targeting_started(_card: Card) -> void:
+	card_targeting_active = true
+	_refresh_unit_interaction()
+
+func _emit_targeting_cell_selected(cell: Vector2i) -> void:
+	if card_targeting_active:
+		SignalBus.cell_selected.emit(cell)
+
+func _on_card_targeting_ended() -> void:
+	card_targeting_active = false
+	_refresh_unit_interaction()
 
 func setup_initial_pieces() -> void:
 	clear_board()
@@ -953,14 +985,14 @@ func set_input_locked(is_locked: bool) -> void:
 	_refresh_unit_interaction()
 
 func _refresh_unit_interaction() -> void:
-	if royal_assignment_controller != null and royal_assignment_controller.is_active():
+	if not card_targeting_active and royal_assignment_controller != null and royal_assignment_controller.is_active():
 		royal_assignment_controller._refresh_unit_interaction()
 		return
 	for u in units.get_children():
 		if not (u is Unit):
 			continue
 		var unit := u as Unit
-		var allow_interaction := not input_locked
+		var allow_interaction := not input_locked and not card_targeting_active
 		if board_state == BoardState.AWAITING_ATTACK_TARGET:
 			allow_interaction = allow_interaction and (unit.team == current_turn or pending_attack_targets.has(unit.grid_pos))
 		else:
@@ -1042,6 +1074,20 @@ func get_valid_card_targets(card: Card, acting_player: Player = null) -> Array[V
 			for x in range(BOARD_SIZE):
 				for y in range(BOARD_SIZE):
 					targets.append(Vector2i(x, y))
+		Card.TargetType.ANY_QUADRANT:
+			for x in range(BOARD_SIZE):
+				for y in range(BOARD_SIZE):
+					targets.append(Vector2i(x, y))
+		Card.TargetType.SELF_QUADRANT, Card.TargetType.ENEMY_QUADRANT:
+			for x in range(BOARD_SIZE):
+				for y in range(BOARD_SIZE):
+					var cell := Vector2i(x, y)
+					var is_player_half := (team == 0 and y >= 4) or (team != 0 and y < 4)
+					var include_cell := is_player_half
+					if card.target_type == Card.TargetType.ENEMY_QUADRANT:
+						include_cell = not is_player_half
+					if include_cell:
+						targets.append(cell)
 		Card.TargetType.SELF:
 			for unit in units.get_children():
 				if unit is Unit and unit.team == team:
@@ -1056,7 +1102,24 @@ func get_valid_card_targets(card: Card, acting_player: Player = null) -> Array[V
 					targets.append(unit.grid_pos)
 		_:
 			return []
-	return targets
+
+	var valid_targets: Array[Vector2i] = []
+	for cell in targets:
+		var unit := get_unit_at(cell)
+		if card.has_play_condition("requires_ally") and (unit == null or unit.team != team):
+			continue
+		if card.has_play_condition("requires_enemy") and (unit == null or unit.team == team):
+			continue
+		if card.has_play_condition("requires_pawn") and (unit == null or unit.piece_type.to_lower() != "pawn"):
+			continue
+		if card.has_play_condition("requires_damaged_unit") and (unit == null or not unit.is_damaged()):
+			continue
+		if card.has_play_condition("requires_promotion_candidate") and (unit == null or not unit.can_be_promoted()):
+			continue
+		if card.has_play_condition("requires_empty_cell") and unit != null:
+			continue
+		valid_targets.append(cell)
+	return valid_targets
 
 func can_claim_throne(team: int) -> bool:
 	if throne_manager == null:

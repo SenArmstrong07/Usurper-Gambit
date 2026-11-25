@@ -23,11 +23,16 @@ var status_label: Label
 var mana_label: Label
 var game_over_label: Label
 var reset_button: Button
+var targeting_prompt_label: Label
 var game_over: bool = false
 var preparation_complete: bool = false
 var battle_started: bool = false
 var _banner_active: bool = false
 var _must_discard_for_hand_limit: bool = false
+
+# A pending card is owned by the player who began targeting, not whoever is active later.
+var pending_card: Card = null
+var pending_card_player: Player = null
 
 func _ready() -> void:
 	board = get_node_or_null("Board") as Board
@@ -50,6 +55,8 @@ func _ready() -> void:
 	hand.opening_draw_completed.connect(_on_opening_draw_completed)
 	if hand_toggle_button != null:
 		hand_toggle_button.pressed.connect(_on_hand_toggle_pressed)
+	if not SignalBus.cell_selected.is_connected(_on_targeting_cell_selected):
+		SignalBus.cell_selected.connect(_on_targeting_cell_selected)
 	_history_panel_setup()
 	add_ui()
 	if board != null:
@@ -65,6 +72,11 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	pass
+
+func _unhandled_input(event: InputEvent) -> void:
+	if pending_card != null and event.is_action_pressed("ui_cancel"):
+		cancel_card_targeting()
+		get_viewport().set_input_as_handled()
 
 func start_preparation_phase() -> void:
 	if board == null:
@@ -148,6 +160,8 @@ func _on_round_ended(team: int) -> void:
 		board.set_input_locked(true)
 
 func _on_round_started(team: int) -> void:
+	if pending_card != null and (pending_card_player == null or pending_card_player.team != team):
+		cancel_card_targeting()
 	if board == null:
 		return
 	var active_player := board.get_player(team)
@@ -187,6 +201,8 @@ func _on_move_history_undone() -> void:
 	update_ui()
 
 func _on_game_over(winner: int) -> void:
+	if pending_card != null:
+		cancel_card_targeting()
 	game_over = true
 	if winner == -1:
 		game_over_label.text = "Draw by stalemate!"
@@ -319,6 +335,16 @@ func add_ui() -> void:
 	reset_button.pressed.connect(_on_reset_pressed)
 	canvas.add_child(reset_button)
 
+	targeting_prompt_label = Label.new()
+	targeting_prompt_label.name = "TargetingPrompt"
+	targeting_prompt_label.position = Vector2(350, 20)
+	targeting_prompt_label.size = Vector2(500, 60)
+	targeting_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	targeting_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	targeting_prompt_label.add_theme_font_size_override("font_size", 22)
+	targeting_prompt_label.visible = false
+	canvas.add_child(targeting_prompt_label)
+
 func update_ui() -> void:
 	current_player = board.current_turn
 	if turn_label != null:
@@ -341,6 +367,66 @@ func is_targetless_card(card: Card) -> bool:
 		Card.TargetType.ALL_ALLIES,
 		Card.TargetType.ALL_ENEMIES
 	]
+
+func get_card_targeting_prompt(card: Card) -> String:
+	if card == null:
+		return ""
+
+	var prompt := "Select a target."
+	match card.target_type:
+		Card.TargetType.ALLY_UNIT:
+			prompt = "Select an allied unit."
+		Card.TargetType.ENEMY_UNIT:
+			prompt = "Select an enemy unit."
+		Card.TargetType.ANY_UNIT:
+			prompt = "Select a unit."
+		Card.TargetType.EMPTY_CELL:
+			prompt = "Select an empty board cell."
+		Card.TargetType.ANY_CELL:
+			prompt = "Select a board cell."
+		Card.TargetType.ANY_QUADRANT:
+			prompt = "Select a quadrant."
+		Card.TargetType.SELF_QUADRANT:
+			prompt = "Select your quadrant."
+		Card.TargetType.ENEMY_QUADRANT:
+			prompt = "Select the enemy quadrant."
+		Card.TargetType.SELF:
+			prompt = "Activate on yourself."
+		Card.TargetType.ALL_ALLIES:
+			prompt = "Apply to all allied units."
+		Card.TargetType.ALL_ENEMIES:
+			prompt = "Apply to all enemy units."
+
+	if card.has_play_condition("requires_empty_cell"):
+		prompt = "Select an empty board cell."
+	elif card.has_play_condition("requires_promotion_candidate"):
+		prompt = "Select a unit eligible for promotion."
+	elif card.has_play_condition("requires_pawn"):
+		var pawn_description := "pawn"
+		if card.target_type == Card.TargetType.ALLY_UNIT or card.has_play_condition("requires_ally"):
+			pawn_description = "allied pawn"
+		elif card.target_type == Card.TargetType.ENEMY_UNIT or card.has_play_condition("requires_enemy"):
+			pawn_description = "enemy pawn"
+		prompt = "Select %s." % pawn_description
+	elif card.has_play_condition("requires_damaged_unit"):
+		if card.target_type == Card.TargetType.ALLY_UNIT or card.has_play_condition("requires_ally"):
+			prompt = "Select a damaged allied unit."
+		elif card.target_type == Card.TargetType.ENEMY_UNIT or card.has_play_condition("requires_enemy"):
+			prompt = "Select a damaged enemy unit."
+		else:
+			prompt = "Select a damaged unit."
+	elif card.has_play_condition("requires_ally"):
+		prompt = "Select an allied unit."
+	elif card.has_play_condition("requires_enemy"):
+		prompt = "Select an enemy unit."
+
+	return prompt
+
+func _show_targeting_prompt(text: String) -> void:
+	if targeting_prompt_label != null:
+		targeting_prompt_label.text = text
+		targeting_prompt_label.visible = not text.is_empty()
+	SignalBus.card_targeting_prompt_changed.emit(text)
 
 func validate_card_play(card: Card, context: EffectContext) -> bool:
 	if game_over or card == null or context == null:
@@ -447,61 +533,89 @@ func _create_effect_context(card: Card, target_cell: Vector2i, target_unit: Unit
 	context.owner_player = owner_player
 	context.target_cell = target_cell
 	context.target_unit = target_unit
+	context.target_player = board.get_player(target_unit.team) if target_unit != null else null
+	if card.target_type == Card.TargetType.SELF:
+		context.target_player = owner_player
+	if card.target_type in [
+		Card.TargetType.ANY_QUADRANT,
+		Card.TargetType.SELF_QUADRANT,
+		Card.TargetType.ENEMY_QUADRANT
+	] and board.is_within_bounds(target_cell):
+		context.target_quadrant = int(target_cell.y / 4) * 2 + int(target_cell.x / 4)
 	return context
 
-func _on_hand_card_requested(card: Card, mouse_pos: Vector2) -> void:
-	if game_over:
+func _on_hand_card_requested(card: Card, _mouse_pos: Vector2) -> void:
+	if game_over or card == null or board == null:
 		return
-	if player == null or card == null or board == null:
-		print("FAILED: Player, card, or board is null.")
+	if pending_card != null:
 		return
-		
-	print("Card:", card.card_name)
-	print("Mana:", player.current_mana, "/", card.mana_cost)
-	print("Player team:", player.team)
-	print("Current turn:", current_player)
-	
-	#get current player and show highlights if the card is valid
+
 	var active_player := get_active_player()
-	if active_player == null:
+	if active_player == null or not active_player.hand.has(card):
 		return
+	if active_player.current_mana < card.mana_cost:
+		if status_label != null:
+			status_label.text = "Not enough mana to play this card."
+		return
+
+	if is_targetless_card(card):
+		var context := _create_effect_context(card, Vector2i(-1, -1), null, active_player)
+		if resolve_card_play(card, active_player, context):
+			_show_targeting_prompt("")
+		return
+
+	pending_card = card
+	pending_card_player = active_player
+	_show_targeting_prompt(get_card_targeting_prompt(card))
+	board.show_card_target_highlights(card, active_player)
+	SignalBus.card_targeting_started.emit(card)
+
+func _on_targeting_cell_selected(cell: Vector2i) -> void:
+	if pending_card == null or pending_card_player == null or board == null:
+		return
+	if pending_card_player != get_active_player():
+		cancel_card_targeting()
+		return
+
+	var target_unit := board.get_unit_at(cell)
+	var context := _create_effect_context(pending_card, cell, target_unit, pending_card_player)
+	var card_to_play := pending_card
+	var owner_to_play := pending_card_player
+	if not resolve_card_play(card_to_play, owner_to_play, context):
+		_show_targeting_prompt("Invalid target. " + get_card_targeting_prompt(card_to_play))
+		return
+	cancel_card_targeting()
+
+func cancel_card_targeting() -> void:
+	var was_targeting := pending_card != null or pending_card_player != null
+	pending_card = null
+	pending_card_player = null
 	if board != null:
-		board.show_card_target_highlights(card, active_player)
+		board.clear_highlights()
+	_show_targeting_prompt("")
+	if was_targeting:
+		SignalBus.card_targeting_ended.emit()
 
-	print("Game accepted card play request for: ", card.card_name)
-	
-	#Create context first, then validate the card play
-	var board_mouse_pos: Vector2 = board.get_global_mouse_position()
-	var target_cell: Vector2i = board.world_to_grid(board_mouse_pos)
-	var target_unit: Unit = board.get_unit_at(target_cell)
-
-	print("Target cell:", target_cell)
-	print("Target unit:", target_unit)
-	print("Cell occupied:", board.is_cell_occupied(target_cell))
-	print("All occupied cells:", board.occupied_cells)
-	
-	var context := _create_effect_context(card, target_cell, target_unit, active_player)
-
-	#validate everything about the card play, before spending resources
+func resolve_card_play(
+	card: Card,
+	caster: Player,
+	context: EffectContext
+) -> bool:
+	if board == null or caster == null or caster != get_active_player() or game_over:
+		return false
+	if context == null or context.player != caster:
+		return false
 	if not validate_card_play(card, context):
-		print("FAILED: validate_card_play() returned false.")
-		board.clear_highlights()
-		return
+		return false
+	if not caster.spend_mana(card.mana_cost):
+		return false
 
-	print("SUCCESS: Card validation passed!")
-
-	print("\nAttempting to spend mana...")
-	if not active_player.spend_mana(card.mana_cost):
-		board.clear_highlights()
-		return
-
-
-	active_player.discard_card(card)
-	
+	caster.discard_card(card)
 	card.play(context)
-
-	board.clear_highlights()
+	if board != null:
+		board.clear_highlights()
 	update_ui()
+	return true
 
 func _on_draw_button_pressed() -> void:
 	if player == null:

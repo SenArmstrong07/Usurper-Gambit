@@ -30,6 +30,9 @@ signal piece_defeated(victim, killer)
 
 # Gameplay effect events
 signal gameplay_effect_triggered(effect_name: String, context: EffectContext)
+signal card_targeting_started(card: Card)
+signal card_targeting_prompt_changed(prompt: String)
+signal card_targeting_ended
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:

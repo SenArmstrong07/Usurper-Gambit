@@ -206,6 +206,9 @@ func _gui_input(event: InputEvent) -> void:
 			if was_dropped_on_board:
 				print("Card released on board: ", card_stats.card_name)
 				card_dropped.emit(card_stats)
+				var return_tween := create_tween()
+				return_tween.tween_property(self, "position", base_position, 0.2)
+				return_tween.parallel().tween_property(self, "scale", Vector2.ONE, 0.2)
 			else:
 				print("Card released outside board: ", card_stats.card_name)
 				card_clicked.emit(card_stats)
@@ -213,15 +216,15 @@ func _gui_input(event: InputEvent) -> void:
 		global_position = get_global_mouse_position() + dragging_offset
 
 func _is_over_board() -> bool:
-	var board := get_tree().get_root().get_node_or_null("Game/Board")
+	var board := get_tree().get_root().get_node_or_null("Game/Board") as Board
 	if board == null:
 		return false
 
 	var board_child := board.get_node_or_null("chessBoard")
 	if board_child is TileMapLayer:
-		var local_mouse : Vector2 = board_child.get_local_mouse_position()
-		var rect := Rect2(Vector2.ZERO, Vector2(8, 8) * 64.0)
-		return rect.has_point(local_mouse)
+		var local_mouse: Vector2 = board_child.get_local_mouse_position()
+		var cell: Vector2i = board_child.local_to_map(local_mouse)
+		return board.is_within_bounds(cell)
 
 	return false
 

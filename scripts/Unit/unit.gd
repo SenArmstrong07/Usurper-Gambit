@@ -71,6 +71,9 @@ func _input(event: InputEvent) -> void:
 	if board == null:
 		return
 
+	if board.card_targeting_active:
+		return
+
 	if get_viewport().gui_get_hovered_control() is CardUI:
 		return
 

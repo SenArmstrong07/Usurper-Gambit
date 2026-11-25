@@ -7,6 +7,7 @@ var source_unit: Unit
 var target_unit: Unit
 var target_player: Player
 var target_cell: Vector2i
+var target_quadrant: int = -1
 
 var board: Board
 var game: Game
