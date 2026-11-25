@@ -111,6 +111,14 @@ func _on_gameplay_effect_triggered(effect_name: String, context: EffectContext) 
 			print("Board received gameplay effect: spawn trap here.")
 		"heal_unit":
 			print("Board received gameplay effect: heal target unit.")
+		"damage_unit":
+			print("Board received gameplay effect: damage target unit.")
+		"draw_card":
+			print("Board received gameplay effect: draw a card.")
+		"discard_card":
+			print("Board received gameplay effect: discard a card.")
+		"modify_stats":
+			print("Board received gameplay effect: modify unit's stats.")
 		_:
 			print("Board received gameplay effect: ", effect_name)
 

@@ -379,7 +379,7 @@ func get_card_targeting_prompt(card: Card) -> String:
 		Card.TargetType.ENEMY_UNIT:
 			prompt = "Select an enemy unit."
 		Card.TargetType.ANY_UNIT:
-			prompt = "Select a unit."
+			prompt = "Select any unit."
 		Card.TargetType.EMPTY_CELL:
 			prompt = "Select an empty board cell."
 		Card.TargetType.ANY_CELL:

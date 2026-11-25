@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="Card" format=3 uid="uid://jp7kgrdix3j3"]
+
+[ext_resource type="Script" uid="uid://co5tfs0e2y7qj" path="res://scripts/Effects/BaseEffect.gd" id="1_0frpx"]
+[ext_resource type="Resource" uid="uid://bgs8r1lqo51pv" path="res://scripts/Card/Brown.tres" id="1_0hrl4"]
+[ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/CardResource.gd" id="2_7yfai"]
+[ext_resource type="Script" uid="uid://c5mahklkpsl7l" path="res://scripts/Effects/DamageEffect.gd" id="2_wl1kg"]
+[ext_resource type="Script" uid="uid://bah6tvj8m3i43" path="res://scripts/Effects/HealEffect.gd" id="3_0hrl4"]
+
+[sub_resource type="Resource" id="Resource_wl1kg"]
+script = ExtResource("2_wl1kg")
+metadata/_custom_type_script = "uid://c5mahklkpsl7l"
+
+[sub_resource type="Resource" id="Resource_0hrl4"]
+script = ExtResource("3_0hrl4")
+metadata/_custom_type_script = "uid://bah6tvj8m3i43"
+
+[resource]
+script = ExtResource("2_7yfai")
+card_name = "Sample Card"
+description = "This spell does something"
+mana_cost = 5
+card_theme = ExtResource("1_0hrl4")
+gameplay_effect_name = "damage_unit_heal_ally"
+play_conditions = Array[String](["requires_enemy_unit", "requuires_ally_unit"])
+effects = Array[ExtResource("1_0frpx")]([SubResource("Resource_wl1kg"), SubResource("Resource_0hrl4")])
+metadata/_custom_type_script = "uid://u1ldthxnnpm7"

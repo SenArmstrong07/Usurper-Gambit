@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="Card" format=3 uid="uid://tc4ufvu0mhvt"]
+
+[ext_resource type="Script" uid="uid://co5tfs0e2y7qj" path="res://scripts/Effects/BaseEffect.gd" id="1_qjn36"]
+[ext_resource type="Resource" uid="uid://bgs8r1lqo51pv" path="res://scripts/Card/Brown.tres" id="1_tkv11"]
+[ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/CardResource.gd" id="2_tkv11"]
+[ext_resource type="Script" uid="uid://c5mahklkpsl7l" path="res://scripts/Effects/DamageEffect.gd" id="3_vbchj"]
+
+[sub_resource type="Resource" id="Resource_vbchj"]
+script = ExtResource("3_vbchj")
+damage = 3
+metadata/_custom_type_script = "uid://c5mahklkpsl7l"
+
+[resource]
+script = ExtResource("2_tkv11")
+card_name = "Lightning Bold"
+description = "Damages enemy unit for 3 points"
+mana_cost = 3
+card_theme = ExtResource("1_tkv11")
+gameplay_effect_name = "damage_unit"
+play_conditions = Array[String](["requires_enemy"])
+effects = Array[ExtResource("1_qjn36")]([SubResource("Resource_vbchj")])
+target_type = 2
+metadata/_custom_type_script = "uid://u1ldthxnnpm7"
