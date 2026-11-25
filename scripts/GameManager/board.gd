@@ -117,6 +117,8 @@ func _on_gameplay_effect_triggered(effect_name: String, context: EffectContext) 
 			print("Board received gameplay effect: draw a card.")
 		"discard_card":
 			print("Board received gameplay effect: discard a card.")
+		"locate_monarch":
+			print("Board received gameplay effect: locate monarch's quadrant.")
 		"modify_stats":
 			print("Board received gameplay effect: modify unit's stats.")
 		_:
@@ -279,6 +281,11 @@ func highlight_cells(cells: Array[Vector2i], use_attack_texture: bool = false) -
 		highlight_manager.show_attack_tiles(cells)
 	else:
 		highlight_manager.show_move_tiles(cells)
+
+func highlight_quadrant(quadrant: int) -> void:
+	if highlight_manager == null:
+		return
+	highlight_manager.show_quadrant_outline(quadrant)
 
 func show_card_target_highlights(card: Card, acting_player: Player = null) -> void:
 	if card == null:
@@ -1052,6 +1059,27 @@ func get_player(team: int) -> Player:
 		return null
 	return players[team]
 
+func get_quadrant_index(cell: Vector2i) -> int:
+	if not is_within_bounds(cell):
+		return -1
+	return int(cell.y / 4) * 2 + int(cell.x / 4)
+
+func is_valid_quadrant_target(cell: Vector2i, target_type: int, team: int) -> bool:
+	if not is_within_bounds(cell):
+		return false
+	if target_type == Card.TargetType.ANY_QUADRANT:
+		return true
+	if team < 0 or team >= players.size():
+		return false
+
+	var is_player_half := (team == 0 and cell.y >= 4) or (team != 0 and cell.y < 4)
+	match target_type:
+		Card.TargetType.SELF_QUADRANT:
+			return is_player_half
+		Card.TargetType.ENEMY_QUADRANT:
+			return not is_player_half
+	return false
+
 func get_valid_card_targets(card: Card, acting_player: Player = null) -> Array[Vector2i]:
 	if card == null:
 		return []
@@ -1082,20 +1110,14 @@ func get_valid_card_targets(card: Card, acting_player: Player = null) -> Array[V
 			for x in range(BOARD_SIZE):
 				for y in range(BOARD_SIZE):
 					targets.append(Vector2i(x, y))
-		Card.TargetType.ANY_QUADRANT:
-			for x in range(BOARD_SIZE):
-				for y in range(BOARD_SIZE):
-					targets.append(Vector2i(x, y))
-		Card.TargetType.SELF_QUADRANT, Card.TargetType.ENEMY_QUADRANT:
+		Card.TargetType.ANY_QUADRANT, Card.TargetType.SELF_QUADRANT, Card.TargetType.ENEMY_QUADRANT:
 			for x in range(BOARD_SIZE):
 				for y in range(BOARD_SIZE):
 					var cell := Vector2i(x, y)
-					var is_player_half := (team == 0 and y >= 4) or (team != 0 and y < 4)
-					var include_cell := is_player_half
-					if card.target_type == Card.TargetType.ENEMY_QUADRANT:
-						include_cell = not is_player_half
-					if include_cell:
+					if is_valid_quadrant_target(cell, card.target_type, team):
 						targets.append(cell)
+		Card.TargetType.ALL_QUADRANTS:
+			return []
 		Card.TargetType.SELF:
 			for unit in units.get_children():
 				if unit is Unit and unit.team == team:

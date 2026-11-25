@@ -365,7 +365,8 @@ func is_targetless_card(card: Card) -> bool:
 		Card.TargetType.NONE,
 		Card.TargetType.SELF,
 		Card.TargetType.ALL_ALLIES,
-		Card.TargetType.ALL_ENEMIES
+		Card.TargetType.ALL_ENEMIES,
+		Card.TargetType.ALL_QUADRANTS
 	]
 
 func get_card_targeting_prompt(card: Card) -> String:
@@ -386,6 +387,8 @@ func get_card_targeting_prompt(card: Card) -> String:
 			prompt = "Select a board cell."
 		Card.TargetType.ANY_QUADRANT:
 			prompt = "Select a quadrant."
+		Card.TargetType.ALL_QUADRANTS:
+			prompt = "Scan all quadrants for the enemy monarch."
 		Card.TargetType.SELF_QUADRANT:
 			prompt = "Select your quadrant."
 		Card.TargetType.ENEMY_QUADRANT:
@@ -451,6 +454,9 @@ func validate_card_play(card: Card, context: EffectContext) -> bool:
 	if active_player.current_mana < card.mana_cost:
 		return false
 
+	if not validate_quadrant_target(card, context, active_player):
+		return false
+
 	# Check target bounds for cell-targeted cards.
 	if not is_targetless_card(card):
 		if not board.is_within_bounds(context.target_cell):
@@ -471,6 +477,19 @@ func validate_card_play(card: Card, context: EffectContext) -> bool:
 
 	# Finally, validate every effect.
 	return card.can_execute(context)
+
+func validate_quadrant_target(card: Card, context: EffectContext, acting_player: Player) -> bool:
+	match card.target_type:
+		Card.TargetType.ALL_QUADRANTS:
+			return context.target_cell == Vector2i(-1, -1) and context.target_unit == null and context.target_quadrant == -1
+		Card.TargetType.ANY_QUADRANT, Card.TargetType.SELF_QUADRANT, Card.TargetType.ENEMY_QUADRANT:
+			if not board.is_within_bounds(context.target_cell):
+				return false
+			if context.target_quadrant != board.get_quadrant_index(context.target_cell):
+				return false
+			return board.is_valid_quadrant_target(context.target_cell, card.target_type, acting_player.team)
+		_:
+			return true
 
 func validate_play_conditions(card: Card, context: EffectContext) -> bool:
 	for condition in card.play_conditions:
@@ -510,6 +529,13 @@ func validate_play_conditions(card: Card, context: EffectContext) -> bool:
 				if not context.target_unit.is_damaged():
 					return false
 
+			"requires_all_quadrant":
+				if context.target_unit == null:
+					print("FAILED requires_all_quadrant: Target is null.")
+					return false
+				if not context.target_unit.can_be_promoted():
+					return false
+
 			"requires_promotion_candidate":
 				if context.target_unit == null:
 					print("FAILED requires_promotion_candidate: Target is null.")
@@ -540,9 +566,20 @@ func _create_effect_context(card: Card, target_cell: Vector2i, target_unit: Unit
 		Card.TargetType.ANY_QUADRANT,
 		Card.TargetType.SELF_QUADRANT,
 		Card.TargetType.ENEMY_QUADRANT
-	] and board.is_within_bounds(target_cell):
-		context.target_quadrant = int(target_cell.y / 4) * 2 + int(target_cell.x / 4)
+	]:
+		context.target_quadrant = board.get_quadrant_index(target_cell)
 	return context
+
+func show_monarch_location(monarch: Unit) -> void:
+	if monarch == null or board == null:
+		return
+
+	var quadrant := int(monarch.grid_pos.y / 4) * 2 + int(monarch.grid_pos.x / 4)
+	var quadrant_names := ["top-left", "top-right", "bottom-left", "bottom-right"]
+	if status_label != null:
+		status_label.text = "Opponent's monarch located in the %s quadrant." % quadrant_names[quadrant]
+
+	board.call_deferred("highlight_quadrant", quadrant)
 
 func _on_hand_card_requested(card: Card, _mouse_pos: Vector2) -> void:
 	if game_over or card == null or board == null:

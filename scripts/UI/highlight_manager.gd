@@ -21,6 +21,34 @@ func show_move_tiles(cells: Array[Vector2i]) -> void:
 func show_attack_tiles(cells: Array[Vector2i]) -> void:
 	_show_tiles(cells, true)
 
+func show_quadrant_outline(quadrant: int) -> void:
+	if highlight_markers == null or chess_board == null:
+		return
+	if quadrant < 0 or quadrant >= 4:
+		push_warning("HighlightManager: Invalid quadrant index %d." % quadrant)
+		return
+
+	clear()
+	var start_cell := Vector2i((quadrant % 2) * 4, int(quadrant / 2) * 4)
+	var center := _cell_center_in_markers(start_cell)
+	var step_x := _cell_center_in_markers(start_cell + Vector2i(1, 0)) - center
+	var step_y := _cell_center_in_markers(start_cell + Vector2i(0, 1)) - center
+
+	var top_left := center - step_x * 0.5 - step_y * 0.5
+	var top_right := _cell_center_in_markers(start_cell + Vector2i(3, 0)) + step_x * 0.5 - step_y * 0.5
+	var bottom_right := _cell_center_in_markers(start_cell + Vector2i(3, 3)) + step_x * 0.5 + step_y * 0.5
+	var bottom_left := _cell_center_in_markers(start_cell + Vector2i(0, 3)) - step_x * 0.5 + step_y * 0.5
+
+	var outline := Line2D.new()
+	outline.points = PackedVector2Array([top_left, top_right, bottom_right, bottom_left])
+	outline.closed = true
+	outline.width = min(step_x.length(), step_y.length()) * 0.12
+	outline.default_color = Color(1.0, 0.82, 0.15, 1.0)
+	outline.antialiased = true
+	highlight_markers.add_child(outline)
+	highlighted_cells.append(outline)
+	highlight_markers.visible = true
+
 func clear() -> void:
 	if highlight_markers == null:
 		return
@@ -28,6 +56,9 @@ func clear() -> void:
 		child.queue_free()
 	highlighted_cells.clear()
 	highlight_markers.visible = false
+
+func _cell_center_in_markers(cell: Vector2i) -> Vector2:
+	return highlight_markers.to_local(chess_board.to_global(chess_board.map_to_local(cell)))
 
 func _show_tiles(cells: Array[Vector2i], use_attack_texture: bool) -> void:
 	clear()

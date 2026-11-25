@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="Card" format=3 uid="uid://cgr468pcgwkdg"]
+
+[ext_resource type="Resource" uid="uid://bgs8r1lqo51pv" path="res://scripts/Card/Brown.tres" id="1_0r7ty"]
+[ext_resource type="Script" uid="uid://co5tfs0e2y7qj" path="res://scripts/Effects/BaseEffect.gd" id="1_s1d6c"]
+[ext_resource type="Script" uid="uid://u1ldthxnnpm7" path="res://scripts/Card/CardResource.gd" id="2_0r7ty"]
+[ext_resource type="Script" uid="uid://bm268up7veq3k" path="res://scripts/Effects/LocateMonarchEffect.gd" id="3_7jfo1"]
+
+[sub_resource type="Resource" id="Resource_0r7ty"]
+script = ExtResource("3_7jfo1")
+metadata/_custom_type_script = "uid://bm268up7veq3k"
+
+[resource]
+script = ExtResource("2_0r7ty")
+card_name = "Mark the Crown"
+description = "Searches all quadrants for the location of enemy's monarch piece"
+mana_cost = 5
+card_theme = ExtResource("1_0r7ty")
+gameplay_effect_name = "locate_monarch"
+effects = Array[ExtResource("1_s1d6c")]([SubResource("Resource_0r7ty")])
+target_type = 7
+metadata/_custom_type_script = "uid://u1ldthxnnpm7"
